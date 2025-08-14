@@ -1,0 +1,40 @@
+{
+  "python.venvPath": "${workspaceFolder}/.venv",
+  "editor.formatOnSave": true,
+  "[yaml]": {
+    // weird stuff happens with SQL
+    "editor.formatOnSave": false
+  },
+  "yaml.customTags": [
+    "!And",
+    "!If",
+    "!Not",
+    "!Equals",
+    "!Or",
+    "!FindInMap sequence",
+    "!Base64",
+    "!Cidr",
+    "!Ref",
+    "!Sub",
+    "!GetAtt",
+    "!GetAZs",
+    "!ImportValue",
+    "!Select",
+    "!Select sequence",
+    "!Split",
+    "!Join sequence"
+  ],
+  "python.testing.pytestArgs": ["apps/users-service/tests"],
+  "python.testing.unittestEnabled": false,
+  "python.testing.pytestEnabled": true,
+  "python.testing.pytestPath": "${workspaceFolder}/.venv/Scripts/pytest",
+  "[python]": {
+    "editor.defaultFormatter": "ms-python.black-formatter",
+    "editor.codeActionsOnSave": {
+      "source.organizeImports": "explicit"
+    }
+  },
+  "isort.args": ["--profile", "black"],
+  "flake8.args": ["--max-line-length=115"],
+  "mypy-type-checker.args": ["--ignore-missing-imports", "builder"]
+}
