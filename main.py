@@ -46,8 +46,6 @@ def run_speed_check() -> SpeedtestResultsDict:
     logger.info("starting speed check")
     client = speedtest.Speedtest(secure=True)
     client.get_best_server()
-    client.download()
-    client.upload()
 
     res = client.results
     download_speed_mbps = res.download * MEGABYTES
