@@ -13,9 +13,13 @@ if [ ! -d ".venv" ]; then
 fi
 
 # activate the virtual environment and install the requirements
-source .venv/bin/activate
-pip install -e .
+# upgrade pip and install dependencies (no source, just use venv paths)
+./.venv/bin/pip install --upgrade pip
+./.venv/bin/pip install -e .
 
+# set the environment variable for commit hash and sleep seconds
+export COMMIT_HASH
+export SLEEP_SECONDS=300
 
-# run the processing loop
-python -m speedtest.handlers.loop
+# run the processing loop using venv's python
+nohup ./.venv/bin/python -m speedtest.handlers.loop > output.log 2>&1 &
