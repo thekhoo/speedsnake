@@ -22,4 +22,4 @@ export COMMIT_HASH
 export SLEEP_SECONDS=300
 
 # run the processing loop using venv's python
-nohup ./.venv/bin/python -m speedtest.handlers.loop > output.log 2>&1 &
+./.venv/bin/python -m speedtest.handlers.loop > output.log 2>&1 &
