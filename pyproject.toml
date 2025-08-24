@@ -1,0 +1,39 @@
+[project]
+name = "internet-speed-check"
+version = "0.1.0"
+description = "I am tired of always checking my internet speed..."
+authors = [
+  { name = "Christopher Khoo", email = "khoojinnwei@gmail.com" },
+]
+dependencies = []
+requires-python = "~=3.13"
+
+[project.urls]
+repository = "https://github.com/thekhoo/internet-speed-check"
+
+[project.optional-dependencies]
+development = [
+  'pytest',
+  'pytest-sugar',
+  # linters
+  'flake8',
+  'black',
+  'isort'
+]
+
+
+[tool.setuptools.packages.find]
+exclude = ["tests"]
+
+[tool.black]
+line-length = 120
+
+# [tool.pytest.ini_options]
+# minversion='8.0'
+# testpaths = [
+#   'apps/users-service/tests'
+# ]
+
+# pythonpath = [
+#   'apps/users-service'
+# ]

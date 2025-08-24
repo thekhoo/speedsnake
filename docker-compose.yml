@@ -1,23 +1,17 @@
 version: "3.9"
 
-x-common-variables: &common-variables
-  UNIVERSE: local
-  SERVICE_NAME: internet-speed-check
-
 services:
-  speedtest-runner:
-    container_name: speedtest-runner
+  speedtest:
+    container_name: speedtest-service
     build:
       context: .
       dockerfile: Dockerfile
     environment:
-      <<: *common-variables
-      S3_BUCKET: atlas
-      SLEEP_INTERVAL_MINUTES: 1
+      SLEEP_SECONDS: 30
+    volumes:
+      - ./speedtest:/app/speedtest
+      - ./results:/app/results
     command:
       - python
       - -m
-      - main
-    volumes:
-      - ./main.py:/app/main.py
-      - ./cache:/app/cache
+      - speedtest.handlers.loop
