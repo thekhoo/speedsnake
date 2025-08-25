@@ -19,7 +19,7 @@ fi
 
 # set the environment variable for commit hash and sleep seconds
 export COMMIT_HASH
-export SLEEP_SECONDS=300
+export SLEEP_SECONDS=600 # 10 minutes
 
 # run the processing loop using venv's python
 # Run Python loop **in foreground**
