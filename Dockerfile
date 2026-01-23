@@ -2,15 +2,15 @@ FROM python:3.13-slim
 
 WORKDIR /app
 
-# we need grep to install the speedtest cli
-RUN apt-get update && apt-get install -y curl sudo
+# install uv
+COPY --from=ghcr.io/astral-sh/uv:latest /uv /uvx /bin/
 
-RUN curl -s https://packagecloud.io/install/repositories/ookla/speedtest-cli/script.deb.sh | sudo bash
-RUN apt-get install -y speedtest-cli
+# install speedtest cli
+RUN apt-get update && apt-get install -y curl sudo \
+    && curl -s https://packagecloud.io/install/repositories/ookla/speedtest-cli/script.deb.sh | sudo bash \
+    && apt-get install -y speedtest-cli \
+    && rm -rf /var/lib/apt/lists/*
 
-# remove lists from apt-get to reduce image size
-RUN rm -rf /var/lib/apt/lists/*
-
-# install requirements
-COPY pyproject.toml .
-RUN pip install -e .
+# install dependencies with uv
+COPY pyproject.toml uv.lock* ./
+RUN uv sync --frozen --no-dev

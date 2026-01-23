@@ -12,6 +12,8 @@ services:
       - ./speedtest:/app/speedtest
       - ./results:/app/results
     command:
+      - uv
+      - run
       - python
       - -m
       - speedtest.handlers.loop

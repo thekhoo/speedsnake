@@ -15,25 +15,22 @@ repository = "https://github.com/thekhoo/internet-speed-check"
 development = [
   'pytest',
   'pytest-sugar',
-  # linters
-  'flake8',
-  'black',
-  'isort'
+  'ruff',
+  'pyrefly',
 ]
-
 
 [tool.setuptools.packages.find]
 exclude = ["tests"]
 
-[tool.black]
+[tool.ruff]
 line-length = 120
 
-# [tool.pytest.ini_options]
-# minversion='8.0'
-# testpaths = [
-#   'apps/users-service/tests'
-# ]
+[tool.ruff.lint]
+select = ["E", "F", "I", "W"]
+ignore = []
 
-# pythonpath = [
-#   'apps/users-service'
-# ]
+[tool.ruff.lint.isort]
+known-first-party = ["speedtest"]
+
+[tool.pyrefly]
+project_includes = ["speedtest"]
