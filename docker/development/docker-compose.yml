@@ -1,0 +1,25 @@
+version: "3.9"
+
+services:
+  speedtest:
+    container_name: speedtest-development
+    build:
+      context: ../..  # Project root
+      dockerfile: docker/development/Dockerfile
+    environment:
+      SLEEP_SECONDS: ${SLEEP_SECONDS:-30}  # Default: 30 seconds for development
+      SPEEDTEST_LOCATION_UUID: ${SPEEDTEST_LOCATION_UUID:-development-location}
+      RESULT_DIR: /app/results
+      LOG_DIR: /app/logs
+      UPLOAD_DIR: /app/uploads
+    volumes:
+      # Mount source code for hot-reload
+      - ../../speedtest:/app/speedtest:ro
+      # Mount data directories
+      - ../../results:/app/results
+      - ../../logs:/app/logs
+      - ../../uploads:/app/uploads
+      # Mount tests for running in container
+      - ../../tests:/app/tests:ro
+    # Override command for development (uses uv for hot-reload support)
+    command: ["python", "-m", "speedtest.handlers.loop"]
