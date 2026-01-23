@@ -32,9 +32,9 @@ uv run pytest -k "test_name"      # run tests matching pattern
 
 ### Linting, formatting, and type checking
 ```bash
-uv run ruff check speedtest/      # lint
-uv run ruff format speedtest/     # format
-uv run pyrefly check              # type check
+uv run ruff check speedtest/ tests/      # lint
+uv run ruff format speedtest/ tests/     # format
+uv run pyrefly check                     # type check
 ```
 
 ### Install dependencies
