@@ -14,3 +14,11 @@ def get_result_dir() -> pathlib.Path:
 
 def get_log_dir() -> pathlib.Path:
     return pathlib.Path(os.getenv("LOG_DIR", "./logs"))
+
+
+def get_upload_dir() -> pathlib.Path:
+    return pathlib.Path(os.getenv("UPLOAD_DIR", "./uploads"))
+
+
+def get_speedtest_location_uuid() -> str:
+    return os.getenv("SPEEDTEST_LOCATION_UUID", "unknown-location")

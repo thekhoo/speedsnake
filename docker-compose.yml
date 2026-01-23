@@ -8,10 +8,12 @@ services:
       dockerfile: Dockerfile
     environment:
       SLEEP_SECONDS: 30
+      SPEEDTEST_LOCATION_UUID: "unknown-location"
     volumes:
       - ./speedtest:/app/speedtest
       - ./results:/app/results
       - ./logs:/app/logs
+      - ./uploads:/app/uploads
     command:
       - uv
       - run

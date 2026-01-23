@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-Internet Speed Check is a Python application that periodically runs Ookla Speedtest CLI, collects results, and stores them as CSV files in Hive partition format for monitoring internet connection speed over time.
+Internet Speed Check is a Python application that periodically runs Ookla Speedtest CLI, collects results, and stores them as CSV files in Hive partition format. Complete days (before today) are automatically converted to numbered Parquet files with location metadata for efficient storage and analysis.
 
 ## Commands
 
@@ -55,7 +55,9 @@ uv sync --group development  # with dev deps
 speedtest/
 ├── handlers/loop.py    # Entry point - polling loop with @loop decorator
 ├── speedtest.py        # Wrapper around speedtest-cli binary (subprocess)
-├── data/results.py     # CSV file persistence with Hive partitioning
+├── data/
+│   ├── results.py      # CSV file persistence with Hive partitioning
+│   └── parquet.py      # Parquet conversion and CSV cleanup
 ├── environment.py      # Environment variable configuration
 └── logging.py          # JSON logging with rotating file handler
 ```
@@ -65,6 +67,12 @@ speedtest/
 1. `handlers/loop.py` runs infinitely, calling `speedtest.run()` at configured intervals
 2. `speedtest.py` executes `speedtest-cli --secure --json --bytes` via subprocess
 3. Results are written as CSV files in Hive partition format: `results/year=YYYY/month=MM/day=DD/speedtest_HH-MM-SS.csv`
+4. After each loop iteration, complete days (before today) are automatically converted:
+   - All CSVs for the day are combined into a numbered Parquet file
+   - `speedtest_address` column is added from environment variable
+   - Parquet file is verified (row count + column check)
+   - Original CSV files are deleted after successful conversion
+   - Parquet files written to: `uploads/year=YYYY/month=MM/day=DD/speedtest_NNN.parquet`
 
 ### Output Format
 
@@ -76,6 +84,7 @@ speedtest/
   - Nested fields: joined with underscore (e.g., `server_name`, `client_ip`)
 
 **Example structure:**
+
 ```
 results/
 └── year=2025/
@@ -86,10 +95,42 @@ results/
             └── speedtest_10-50-45.csv
 ```
 
+### Parquet Conversion (Automatic)
+
+Complete days (before today) are automatically converted to Parquet format at the end of each loop iteration:
+
+- **Trigger**: Runs after each speedtest execution (in finally block)
+- **Conversion**: All CSV files for a day → single numbered Parquet file
+- **Location tracking**: Location UUID is part of the Hive partition path structure
+- **Numbering**: Finds highest existing number in partition, increments (001, 002, 003...)
+- **Verification**: Validates row count before deleting CSVs
+- **Fire-and-forget**: No state tracking; always creates new numbered file
+- **Error handling**: Conversion errors logged but don't stop main loop
+
+**Parquet output structure:**
+
+```
+uploads/
+└── location=<UUID>/
+    └── year=2025/
+        └── month=01/
+            ├── day=20/
+            │   ├── speedtest_001.parquet  # First conversion
+            │   └── speedtest_002.parquet  # Second conversion (if re-run)
+            ├── day=21/
+            │   └── speedtest_001.parquet
+            └── day=22/
+                └── speedtest_001.parquet
+```
+
+**Note**: Original CSV files are deleted after successful Parquet conversion and verification.
+
 ### Configuration (Environment Variables)
 
 - `SLEEP_SECONDS`: Interval between tests (default: 5 seconds; bootstrap uses 600)
-- `RESULT_DIR`: Output directory (default: `./results`)
+- `RESULT_DIR`: CSV output directory (default: `./results`)
+- `UPLOAD_DIR`: Parquet output directory (default: `./uploads`)
+- `SPEEDTEST_LOCATION_UUID`: Location identifier used in Parquet partition path (default: `unknown-location`, recommended: UUID4 string)
 - `LOG_DIR`: Log output directory (default: `./logs`)
 - `COMMIT_HASH`: Git commit tracking
 
@@ -116,12 +157,12 @@ results/
 - Prefer small, composable functions where possible
 - Write code that is easy to test
 
-## Merge Behaviours
+## Merge and Commit Behaviour
 
-- Always create a new branch that's up to date with main and give it a suitable name
-- Create a PR that goes into main
-- Fill the description explaining the changes that have been made
-- Add comments to section that serve as points of interest on the PR
+- When making a change, always checkout a new branch first so code can be commited in increments
+- Each task that is generated should be it's own commit
+- Don't bundle everything together in one big commit
+- Use conventional commits for the commit message structure
 
 ## Agents and Planning
 
