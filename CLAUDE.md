@@ -84,6 +84,7 @@ speedtest/
   - Nested fields: joined with underscore (e.g., `server_name`, `client_ip`)
 
 **Example structure:**
+
 ```
 results/
 └── year=2025/
@@ -100,24 +101,26 @@ Complete days (before today) are automatically converted to Parquet format at th
 
 - **Trigger**: Runs after each speedtest execution (in finally block)
 - **Conversion**: All CSV files for a day → single numbered Parquet file
-- **Location tracking**: Adds `speedtest_address` column from `SPEEDTEST_ADDRESS` env var
+- **Location tracking**: Location UUID is part of the Hive partition path structure
 - **Numbering**: Finds highest existing number in partition, increments (001, 002, 003...)
-- **Verification**: Validates row count and column existence before deleting CSVs
+- **Verification**: Validates row count before deleting CSVs
 - **Fire-and-forget**: No state tracking; always creates new numbered file
 - **Error handling**: Conversion errors logged but don't stop main loop
 
 **Parquet output structure:**
+
 ```
 uploads/
-└── year=2025/
-    └── month=01/
-        ├── day=20/
-        │   ├── speedtest_001.parquet  # First conversion
-        │   └── speedtest_002.parquet  # Second conversion (if re-run)
-        ├── day=21/
-        │   └── speedtest_001.parquet
-        └── day=22/
-            └── speedtest_001.parquet
+└── location=<UUID>/
+    └── year=2025/
+        └── month=01/
+            ├── day=20/
+            │   ├── speedtest_001.parquet  # First conversion
+            │   └── speedtest_002.parquet  # Second conversion (if re-run)
+            ├── day=21/
+            │   └── speedtest_001.parquet
+            └── day=22/
+                └── speedtest_001.parquet
 ```
 
 **Note**: Original CSV files are deleted after successful Parquet conversion and verification.
@@ -127,7 +130,7 @@ uploads/
 - `SLEEP_SECONDS`: Interval between tests (default: 5 seconds; bootstrap uses 600)
 - `RESULT_DIR`: CSV output directory (default: `./results`)
 - `UPLOAD_DIR`: Parquet output directory (default: `./uploads`)
-- `SPEEDTEST_ADDRESS`: Location identifier added to Parquet files (default: `unknown-location`)
+- `SPEEDTEST_LOCATION_UUID`: Location identifier used in Parquet partition path (default: `unknown-location`, recommended: UUID4 string)
 - `LOG_DIR`: Log output directory (default: `./logs`)
 - `COMMIT_HASH`: Git commit tracking
 
@@ -154,12 +157,12 @@ uploads/
 - Prefer small, composable functions where possible
 - Write code that is easy to test
 
-## Merge Behaviours
+## Merge and Commit Behaviour
 
-- Always create a new branch that's up to date with main and give it a suitable name
-- Create a PR that goes into main
-- Fill the description explaining the changes that have been made
-- Add comments to section that serve as points of interest on the PR
+- When making a change, always checkout a new branch first so code can be commited in increments
+- Each task that is generated should be it's own commit
+- Don't bundle everything together in one big commit
+- Use conventional commits for the commit message structure
 
 ## Agents and Planning
 
