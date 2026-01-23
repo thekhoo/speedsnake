@@ -11,6 +11,7 @@ services:
     volumes:
       - ./speedtest:/app/speedtest
       - ./results:/app/results
+      - ./logs:/app/logs
     command:
       - uv
       - run
