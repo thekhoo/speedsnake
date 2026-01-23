@@ -2,6 +2,8 @@ import json
 import logging
 import pathlib
 
+from speedtest.speedtest import SpeedtestResponse
+
 logger = logging.getLogger(__name__)
 
 
@@ -23,7 +25,7 @@ def read_array(source: pathlib.Path) -> list[dict]:
         return current_data
 
 
-def update_array(source: pathlib.Path, result: dict):
+def update_array(source: pathlib.Path, result: SpeedtestResponse):
     current_data = read_array(source)
     new_data = current_data + [result]
 

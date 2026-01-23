@@ -45,11 +45,11 @@ class SpeedtestResponse(typing.TypedDict):
     client: SpeedtestClientResponse
 
 
-def run(flags: list[str] = None) -> SpeedtestResponse:
+def run(flags: typing.Optional[list[str]] = None) -> SpeedtestResponse:
     if flags is None:
         flags = ["--secure", "--json", "--bytes"]
 
-    logger.info(f'running speedtest with flags: {" ".join(flags)}')
+    logger.info(f"running speedtest with flags: {' '.join(flags)}")
     result = subprocess.run(["speedtest", *flags], capture_output=True, text=True)
     if result.returncode != 0:
         logger.error(f"Speedtest failed with error: {result.stderr}")
