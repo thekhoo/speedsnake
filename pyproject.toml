@@ -5,7 +5,9 @@ description = "I am tired of always checking my internet speed..."
 authors = [
   { name = "Christopher Khoo", email = "khoojinnwei@gmail.com" },
 ]
-dependencies = []
+dependencies = [
+  "duckdb>=1.0.0",
+]
 requires-python = ">=3.13"
 
 [project.urls]

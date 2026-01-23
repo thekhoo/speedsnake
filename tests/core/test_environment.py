@@ -54,3 +54,33 @@ class TestGetLogDir:
         monkeypatch.setenv("LOG_DIR", "/some/log/dir")
         result = environment.get_log_dir()
         assert isinstance(result, pathlib.Path)
+
+
+class TestGetUploadDir:
+    def test_default_value(self, monkeypatch):
+        monkeypatch.delenv("UPLOAD_DIR", raising=False)
+        assert environment.get_upload_dir() == pathlib.Path("./uploads")
+
+    def test_custom_value(self, monkeypatch):
+        monkeypatch.setenv("UPLOAD_DIR", "/app/uploads")
+        assert environment.get_upload_dir() == pathlib.Path("/app/uploads")
+
+    def test_returns_pathlib_path(self, monkeypatch):
+        monkeypatch.setenv("UPLOAD_DIR", "/custom/uploads")
+        result = environment.get_upload_dir()
+        assert isinstance(result, pathlib.Path)
+
+
+class TestGetSpeedtestAddress:
+    def test_default_value(self, monkeypatch):
+        monkeypatch.delenv("SPEEDTEST_ADDRESS", raising=False)
+        assert environment.get_speedtest_address() == "unknown-location"
+
+    def test_custom_value(self, monkeypatch):
+        monkeypatch.setenv("SPEEDTEST_ADDRESS", "123-Main-Street-Apt-4B")
+        assert environment.get_speedtest_address() == "123-Main-Street-Apt-4B"
+
+    def test_returns_string(self, monkeypatch):
+        monkeypatch.setenv("SPEEDTEST_ADDRESS", "test-location")
+        result = environment.get_speedtest_address()
+        assert isinstance(result, str)
