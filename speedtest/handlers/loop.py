@@ -28,6 +28,8 @@ def check_and_convert_complete_days() -> None:
 
     logger.info(f"Found {len(complete_days)} complete days to convert: {complete_days}")
 
+    location_uuid = env.get_speedtest_location_uuid()
+
     for day_str in complete_days:
         try:
             # Parse day string to reconstruct partition paths
@@ -36,11 +38,13 @@ def check_and_convert_complete_days() -> None:
             # Construct CSV partition path
             csv_partition = env.get_result_dir() / f"year={year}" / f"month={month}" / f"day={day}"
 
-            # Construct parquet partition path
-            parquet_partition = env.get_upload_dir() / f"year={year}" / f"month={month}" / f"day={day}"
+            # Construct parquet partition path with location
+            parquet_partition = (
+                env.get_upload_dir() / f"location={location_uuid}" / f"year={year}" / f"month={month}" / f"day={day}"
+            )
 
             # Convert day to parquet
-            parquet_path = parquet.convert_day_to_parquet(csv_partition, parquet_partition, env.get_speedtest_address())
+            parquet_path = parquet.convert_day_to_parquet(csv_partition, parquet_partition)
 
             logger.info(f"Successfully converted {day_str} to {parquet_path}")
 

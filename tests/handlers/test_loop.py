@@ -136,7 +136,7 @@ class TestCheckAndConvertCompleteDays:
     def test_converts_single_complete_day(self, tmp_path, monkeypatch):
         monkeypatch.setenv("RESULT_DIR", str(tmp_path / "results"))
         monkeypatch.setenv("UPLOAD_DIR", str(tmp_path / "uploads"))
-        monkeypatch.setenv("SPEEDTEST_ADDRESS", "test-location")
+        monkeypatch.setenv("SPEEDTEST_LOCATION_UUID", "test-uuid")
 
         with patch("speedtest.data.parquet.get_complete_days", return_value=["2026-01-20"]):
             with patch("speedtest.data.parquet.convert_day_to_parquet") as mock_convert:
@@ -146,13 +146,12 @@ class TestCheckAndConvertCompleteDays:
                 mock_convert.assert_called_once()
                 call_args = mock_convert.call_args
                 assert str(call_args[0][0]).endswith("year=2026/month=01/day=20")
-                assert str(call_args[0][1]).endswith("year=2026/month=01/day=20")
-                assert call_args[0][2] == "test-location"
+                assert str(call_args[0][1]).endswith("location=test-uuid/year=2026/month=01/day=20")
 
     def test_converts_multiple_complete_days(self, tmp_path, monkeypatch):
         monkeypatch.setenv("RESULT_DIR", str(tmp_path / "results"))
         monkeypatch.setenv("UPLOAD_DIR", str(tmp_path / "uploads"))
-        monkeypatch.setenv("SPEEDTEST_ADDRESS", "test-location")
+        monkeypatch.setenv("SPEEDTEST_LOCATION_UUID", "test-uuid")
 
         with patch("speedtest.data.parquet.get_complete_days", return_value=["2026-01-20", "2026-01-21"]):
             with patch("speedtest.data.parquet.convert_day_to_parquet") as mock_convert:
