@@ -1,6 +1,6 @@
 version = 1
 revision = 3
-requires-python = ">=3.13, <4"
+requires-python = ">=3.13"
 
 [[package]]
 name = "colorama"
@@ -25,7 +25,7 @@ name = "internet-speed-check"
 version = "0.1.0"
 source = { virtual = "." }
 
-[package.optional-dependencies]
+[package.dev-dependencies]
 development = [
     { name = "pyrefly" },
     { name = "pytest" },
@@ -34,13 +34,14 @@ development = [
 ]
 
 [package.metadata]
-requires-dist = [
-    { name = "pyrefly", marker = "extra == 'development'" },
-    { name = "pytest", marker = "extra == 'development'" },
-    { name = "pytest-sugar", marker = "extra == 'development'" },
-    { name = "ruff", marker = "extra == 'development'" },
+
+[package.metadata.requires-dev]
+development = [
+    { name = "pyrefly" },
+    { name = "pytest" },
+    { name = "pytest-sugar" },
+    { name = "ruff" },
 ]
-provides-extras = ["development"]
 
 [[package]]
 name = "packaging"

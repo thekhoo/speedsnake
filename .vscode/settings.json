@@ -23,7 +23,7 @@
     "!Split",
     "!Join sequence"
   ],
-  "python.testing.pytestArgs": ["speedtest"],
+  "python.testing.pytestArgs": ["tests"],
   "python.testing.unittestEnabled": false,
   "python.testing.pytestEnabled": true,
   "[python]": {

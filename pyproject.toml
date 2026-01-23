@@ -6,12 +6,12 @@ authors = [
   { name = "Christopher Khoo", email = "khoojinnwei@gmail.com" },
 ]
 dependencies = []
-requires-python = "~=3.13"
+requires-python = ">=3.13"
 
 [project.urls]
 repository = "https://github.com/thekhoo/internet-speed-check"
 
-[project.optional-dependencies]
+[dependency-groups]
 development = [
   'pytest',
   'pytest-sugar',

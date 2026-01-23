@@ -23,6 +23,13 @@ docker-compose up
 uv run python -m speedtest.handlers.loop
 ```
 
+### Testing
+```bash
+uv run pytest                     # run all tests
+uv run pytest tests/test_speedtest.py  # run specific file
+uv run pytest -k "test_name"      # run tests matching pattern
+```
+
 ### Linting, formatting, and type checking
 ```bash
 uv run ruff check speedtest/      # lint
