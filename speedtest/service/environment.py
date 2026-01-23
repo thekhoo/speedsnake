@@ -20,5 +20,5 @@ def get_upload_dir() -> pathlib.Path:
     return pathlib.Path(os.getenv("UPLOAD_DIR", "./uploads"))
 
 
-def get_speedtest_address() -> str:
-    return os.getenv("SPEEDTEST_ADDRESS", "unknown-location")
+def get_speedtest_location_uuid() -> str:
+    return os.getenv("SPEEDTEST_LOCATION_UUID", "unknown-location")

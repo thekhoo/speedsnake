@@ -71,16 +71,16 @@ class TestGetUploadDir:
         assert isinstance(result, pathlib.Path)
 
 
-class TestGetSpeedtestAddress:
+class TestGetSpeedtestLocationUuid:
     def test_default_value(self, monkeypatch):
-        monkeypatch.delenv("SPEEDTEST_ADDRESS", raising=False)
-        assert environment.get_speedtest_address() == "unknown-location"
+        monkeypatch.delenv("SPEEDTEST_LOCATION_UUID", raising=False)
+        assert environment.get_speedtest_location_uuid() == "unknown-location"
 
     def test_custom_value(self, monkeypatch):
-        monkeypatch.setenv("SPEEDTEST_ADDRESS", "123-Main-Street-Apt-4B")
-        assert environment.get_speedtest_address() == "123-Main-Street-Apt-4B"
+        monkeypatch.setenv("SPEEDTEST_LOCATION_UUID", "550e8400-e29b-41d4-a716-446655440000")
+        assert environment.get_speedtest_location_uuid() == "550e8400-e29b-41d4-a716-446655440000"
 
     def test_returns_string(self, monkeypatch):
-        monkeypatch.setenv("SPEEDTEST_ADDRESS", "test-location")
-        result = environment.get_speedtest_address()
+        monkeypatch.setenv("SPEEDTEST_LOCATION_UUID", "test-uuid")
+        result = environment.get_speedtest_location_uuid()
         assert isinstance(result, str)
