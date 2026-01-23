@@ -4,6 +4,7 @@ from functools import wraps
 
 import speedtest.data.results as results
 import speedtest.environment as env
+import speedtest.logging as speedtest_logging
 import speedtest.speedtest as speedtest
 
 logger = logging.getLogger(__name__)
@@ -38,15 +39,13 @@ def run():
 
 
 def main():
+    speedtest_logging.setup_logging()
+    logger.info("Starting speedtest loop")
     try:
         run()
-    except KeyboardInterrupt as _:
+    except KeyboardInterrupt:
         logger.warning("interrupt signal received, exiting gracefully")
 
 
 if __name__ == "__main__":
-    logging.basicConfig(
-        level=logging.INFO,
-        format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
-    )
     main()

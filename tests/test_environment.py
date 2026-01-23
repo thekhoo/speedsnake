@@ -39,3 +39,18 @@ class TestGetResultDir:
         monkeypatch.setenv("RESULT_DIR", "/some/dir")
         result = environment.get_result_dir()
         assert isinstance(result, pathlib.Path)
+
+
+class TestGetLogDir:
+    def test_default_value(self, monkeypatch):
+        monkeypatch.delenv("LOG_DIR", raising=False)
+        assert environment.get_log_dir() == pathlib.Path("./logs")
+
+    def test_custom_value(self, monkeypatch):
+        monkeypatch.setenv("LOG_DIR", "/var/log/speedtest")
+        assert environment.get_log_dir() == pathlib.Path("/var/log/speedtest")
+
+    def test_returns_pathlib_path(self, monkeypatch):
+        monkeypatch.setenv("LOG_DIR", "/some/log/dir")
+        result = environment.get_log_dir()
+        assert isinstance(result, pathlib.Path)

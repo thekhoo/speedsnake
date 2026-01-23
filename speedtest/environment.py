@@ -10,3 +10,7 @@ def get_sleep_seconds() -> int:
 
 def get_result_dir() -> pathlib.Path:
     return pathlib.Path(os.getenv("RESULT_DIR", "./results"))
+
+
+def get_log_dir() -> pathlib.Path:
+    return pathlib.Path(os.getenv("LOG_DIR", "./logs"))

@@ -9,21 +9,25 @@ Internet Speed Check is a Python application that periodically runs Ookla Speedt
 ## Commands
 
 ### Run locally
+
 ```bash
 ./bootstrap.sh  # Sets up venv, installs deps, runs with 10-min intervals
 ```
 
 ### Run with Docker
+
 ```bash
 docker-compose up
 ```
 
 ### Run directly
+
 ```bash
 uv run python -m speedtest.handlers.loop
 ```
 
 ### Testing
+
 ```bash
 uv run pytest                     # run all tests
 uv run pytest tests/test_speedtest.py  # run specific file
@@ -31,6 +35,7 @@ uv run pytest -k "test_name"      # run tests matching pattern
 ```
 
 ### Linting, formatting, and type checking
+
 ```bash
 uv run ruff check speedtest/ tests/      # lint
 uv run ruff format speedtest/ tests/     # format
@@ -38,6 +43,7 @@ uv run pyrefly check                     # type check
 ```
 
 ### Install dependencies
+
 ```bash
 uv sync                    # production deps
 uv sync --group development  # with dev deps
@@ -50,25 +56,52 @@ speedtest/
 ├── handlers/loop.py    # Entry point - polling loop with @loop decorator
 ├── speedtest.py        # Wrapper around speedtest-cli binary (subprocess)
 ├── data/results.py     # JSON file persistence (read/append to daily files)
-└── environment.py      # Environment variable configuration
+├── environment.py      # Environment variable configuration
+└── logging.py          # JSON logging with rotating file handler
 ```
 
 ### Data Flow
+
 1. `handlers/loop.py` runs infinitely, calling `speedtest.run()` at configured intervals
 2. `speedtest.py` executes `speedtest-cli --secure --json --bytes` via subprocess
 3. Results are appended to `{DATE}_speedtest.json` files in the results directory
 
 ### Configuration (Environment Variables)
+
 - `SLEEP_SECONDS`: Interval between tests (default: 5 seconds; bootstrap uses 600)
 - `RESULT_DIR`: Output directory (default: `./results`)
+- `LOG_DIR`: Log output directory (default: `./logs`)
 - `COMMIT_HASH`: Git commit tracking
 
+### Logging
+
+- JSON formatted logs written to `logs/speedtest.log`
+- Rotating file handler: 5MB max per file, keeps 10 backup files (`.log.1`, `.log.2`, etc.)
+
 ### Bandwidth Conversion
+
 True speed in Mbps = `bandwidth * 8 / 1024 / 1024` (bandwidth is bytes/sec)
 
 ## Code Style
+
 - Line length: 120 (ruff)
 - Linting: ruff (E, F, I, W rules)
 - Formatting: ruff format
 - Type checking: pyrefly
 - Python version: 3.13
+
+## Claude Instructions
+
+- Ask clarifying questions in requirements are ambiguous
+- Explain _why_ changes are suggested
+
+## Coding Preferences
+
+- Prefer small, composable functions where possible
+- Write code that is easy to test
+
+## Out of Scope
+
+- Do not introduce new frameworks without asking
+- If there is a package/framework that could reduce the amount of code needed, suggest it
+- Do not optimize prematurely
