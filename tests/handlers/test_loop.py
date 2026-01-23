@@ -62,7 +62,7 @@ class TestLoopDecorator:
                 raise KeyboardInterrupt()
 
         with patch("speedtest.handlers.loop.sleep") as mock_sleep:
-            with patch("speedtest.environment.get_sleep_seconds", return_value=60):
+            with patch("speedtest.service.environment.get_sleep_seconds", return_value=60):
                 with pytest.raises(KeyboardInterrupt):
                     test_func()
 
@@ -104,7 +104,7 @@ class TestRun:
                 raise KeyboardInterrupt()
             return mock_speedtest_response
 
-        with patch("speedtest.speedtest.run", side_effect=mock_speedtest_run):
+        with patch("speedtest.service.speedtest.run", side_effect=mock_speedtest_run):
             with patch("speedtest.handlers.loop.sleep"):
                 with pytest.raises(KeyboardInterrupt):
                     loop.run()

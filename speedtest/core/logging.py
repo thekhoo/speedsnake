@@ -3,7 +3,7 @@ import logging
 from datetime import datetime, timezone
 from logging.handlers import RotatingFileHandler
 
-import speedtest.environment as env
+import speedtest.service.environment as env
 
 LOG_MAX_BYTES = 5 * 1024 * 1024  # 5MB
 LOG_BACKUP_COUNT = 10

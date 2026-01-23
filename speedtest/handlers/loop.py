@@ -2,10 +2,10 @@ import logging
 import time
 from functools import wraps
 
+import speedtest.core.logging as speedtest_logging
 import speedtest.data.results as results
-import speedtest.environment as env
-import speedtest.logging as speedtest_logging
-import speedtest.speedtest as speedtest
+import speedtest.service.environment as env
+import speedtest.service.speedtest as speedtest
 
 logger = logging.getLogger(__name__)
 

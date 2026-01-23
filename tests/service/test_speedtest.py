@@ -3,7 +3,7 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
-from speedtest import speedtest
+from speedtest.service import speedtest
 
 
 @pytest.fixture

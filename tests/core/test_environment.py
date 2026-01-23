@@ -2,7 +2,7 @@ import pathlib
 
 import pytest
 
-from speedtest import environment
+from speedtest.service import environment
 
 
 class TestGetSleepSeconds:
