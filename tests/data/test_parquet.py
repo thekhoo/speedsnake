@@ -139,23 +139,10 @@ class TestVerifyParquetIntegrity:
         with pytest.raises(ValueError, match="Row count mismatch"):
             parquet.verify_parquet_integrity(parquet_path, 5)
 
-    def test_missing_column_raises_error(self, tmp_path):
-        # Create parquet without speedtest_address column
+    def test_valid_parquet_returns_true(self, tmp_path):
+        # Create valid parquet
         parquet_path = tmp_path / "test.parquet"
         duckdb.query(f"COPY (SELECT 1 as download, 2 as upload) TO '{parquet_path}' (FORMAT PARQUET)")
-
-        with pytest.raises(ValueError, match="Missing speedtest_address"):
-            parquet.verify_parquet_integrity(parquet_path, 1)
-
-    def test_valid_parquet_returns_true(self, tmp_path):
-        # Create valid parquet with speedtest_address column
-        parquet_path = tmp_path / "test.parquet"
-        query = f"""
-            COPY (
-                SELECT 1 as download, 2 as upload, 'test-location' as speedtest_address
-            ) TO '{parquet_path}' (FORMAT PARQUET)
-        """
-        duckdb.query(query)
 
         assert parquet.verify_parquet_integrity(parquet_path, 1) is True
 
@@ -205,7 +192,7 @@ class TestConvertDayToParquet:
         parquet_dir = tmp_path / "parquet"
 
         with pytest.raises(ValueError, match="does not exist"):
-            parquet.convert_day_to_parquet(csv_dir, parquet_dir, "test-location")
+            parquet.convert_day_to_parquet(csv_dir, parquet_dir)
 
     def test_no_csv_files_raises_error(self, tmp_path):
         csv_dir = tmp_path / "csv"
@@ -213,7 +200,7 @@ class TestConvertDayToParquet:
         parquet_dir = tmp_path / "parquet"
 
         with pytest.raises(ValueError, match="No CSV files found"):
-            parquet.convert_day_to_parquet(csv_dir, parquet_dir, "test-location")
+            parquet.convert_day_to_parquet(csv_dir, parquet_dir)
 
     def test_converts_single_csv_to_parquet(self, tmp_path):
         # Create CSV file
@@ -224,7 +211,7 @@ class TestConvertDayToParquet:
 
         parquet_dir = tmp_path / "parquet"
 
-        result_path = parquet.convert_day_to_parquet(csv_dir, parquet_dir, "123-Main-St")
+        result_path = parquet.convert_day_to_parquet(csv_dir, parquet_dir)
 
         # Verify parquet created
         assert result_path.exists()
@@ -233,7 +220,6 @@ class TestConvertDayToParquet:
         # Verify data
         data = duckdb.query(f"SELECT * FROM '{result_path}'").fetchall()
         assert len(data) == 1
-        assert data[0][-1] == "123-Main-St"  # speedtest_address column
 
         # Verify CSV deleted
         assert not csv_file.exists()
@@ -248,7 +234,7 @@ class TestConvertDayToParquet:
 
         parquet_dir = tmp_path / "parquet"
 
-        result_path = parquet.convert_day_to_parquet(csv_dir, parquet_dir, "test-location")
+        result_path = parquet.convert_day_to_parquet(csv_dir, parquet_dir)
 
         # Verify parquet created with all rows
         data = duckdb.query(f"SELECT * FROM '{result_path}'").fetchall()
@@ -269,7 +255,7 @@ class TestConvertDayToParquet:
         csv_file = csv_dir / "speedtest_10-00-00.csv"
         csv_file.write_text("download,upload,ping\n100,50,10\n")
 
-        result_path = parquet.convert_day_to_parquet(csv_dir, parquet_dir, "test-location")
+        result_path = parquet.convert_day_to_parquet(csv_dir, parquet_dir)
 
         # Verify new file is numbered 002
         assert result_path.name == "speedtest_002.parquet"
@@ -288,7 +274,7 @@ class TestConvertDayToParquet:
 
         try:
             with pytest.raises(Exception):
-                parquet.convert_day_to_parquet(csv_dir, parquet_dir, "test-location")
+                parquet.convert_day_to_parquet(csv_dir, parquet_dir)
 
             # Verify CSV still exists (not deleted on failure)
             assert csv_file.exists()

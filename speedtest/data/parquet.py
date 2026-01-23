@@ -114,13 +114,6 @@ def verify_parquet_integrity(parquet_path: pathlib.Path, expected_rows: int) -> 
     if actual_rows != expected_rows:
         raise ValueError(f"Row count mismatch: expected {expected_rows}, got {actual_rows}")
 
-    # Verify speedtest_address column exists
-    columns_result = duckdb.query(f"DESCRIBE SELECT * FROM '{parquet_path}'").fetchall()
-    column_names = [col[0] for col in columns_result]
-
-    if "speedtest_address" not in column_names:
-        raise ValueError("Missing speedtest_address column in parquet file")
-
     logger.info(f"Parquet integrity verified: {parquet_path} ({actual_rows} rows)")
     return True
 
@@ -155,13 +148,12 @@ def delete_csv_files(csv_dir: pathlib.Path) -> None:
     logger.info(f"Deleted {deleted_count} CSV files from {csv_dir}")
 
 
-def convert_day_to_parquet(csv_dir: pathlib.Path, parquet_dir: pathlib.Path, speedtest_address: str) -> pathlib.Path:
+def convert_day_to_parquet(csv_dir: pathlib.Path, parquet_dir: pathlib.Path) -> pathlib.Path:
     """Convert all CSV files for a day into a single numbered Parquet file.
 
     Args:
         csv_dir: Source partition directory with CSV files
-        parquet_dir: Destination partition directory for parquet file
-        speedtest_address: Location identifier to add as column
+        parquet_dir: Destination partition directory for parquet file (includes location in path)
 
     Returns:
         Path to created parquet file
@@ -186,14 +178,14 @@ def convert_day_to_parquet(csv_dir: pathlib.Path, parquet_dir: pathlib.Path, spe
     parquet_filename = get_parquet_filename(next_number)
     parquet_path = parquet_dir / parquet_filename
 
-    # Use DuckDB to read CSVs, add column, and write parquet
+    # Use DuckDB to read CSVs and write parquet
     csv_pattern = str(csv_dir / "speedtest_*.csv")
 
     try:
-        # Read all CSVs and add speedtest_address column
+        # Read all CSVs and write to parquet
         query = f"""
             COPY (
-                SELECT *, '{speedtest_address}' as speedtest_address
+                SELECT *
                 FROM read_csv('{csv_pattern}', auto_detect=true, union_by_name=true)
             ) TO '{parquet_path}' (FORMAT PARQUET);
         """
