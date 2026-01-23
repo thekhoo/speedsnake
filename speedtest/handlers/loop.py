@@ -32,10 +32,12 @@ def loop(func):
 @loop
 def run():
     res = speedtest.run()
-    date_str = speedtest.get_date_str_from_result(res)
 
-    filepath = env.get_result_dir() / f"{date_str}_speedtest.json"
-    results.update_array(filepath, res)
+    partition_dir = results.get_hive_partition_path(env.get_result_dir(), res["timestamp"])
+    filename = results.get_csv_filename(res["timestamp"])
+    filepath = partition_dir / filename
+
+    results.write_csv(filepath, res)
 
 
 def main():

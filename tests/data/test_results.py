@@ -1,107 +1,150 @@
-import json
-
-import pytest
+import csv
 
 from speedtest.data import results
 
 
-@pytest.fixture
-def sample_result():
-    return {
-        "download": 125000000,
-        "upload": 25000000,
-        "ping": 15,
-        "timestamp": "2025-01-15T10:30:00.000000Z",
-        "server": {},
-        "client": {},
-        "bytes_sent": 0,
-        "bytes_received": 0,
-        "share": None,
-    }
+class TestFlattenDict:
+    def test_flatten_simple_dict(self):
+        data = {"a": 1, "b": 2}
+        result = results.flatten_dict(data)
+        assert result == {"a": 1, "b": 2}
+
+    def test_flatten_nested_dict(self):
+        data = {"outer": {"inner": "value"}}
+        result = results.flatten_dict(data)
+        assert result == {"outer_inner": "value"}
+
+    def test_flatten_multiple_nested_levels(self):
+        data = {"level1": {"level2": {"level3": "value"}}}
+        result = results.flatten_dict(data)
+        assert result == {"level1_level2_level3": "value"}
+
+    def test_flatten_mixed_nested_dict(self):
+        data = {"a": 1, "b": {"c": 2, "d": 3}, "e": 4}
+        result = results.flatten_dict(data)
+        assert result == {"a": 1, "b_c": 2, "b_d": 3, "e": 4}
+
+    def test_flatten_custom_separator(self):
+        data = {"outer": {"inner": "value"}}
+        result = results.flatten_dict(data, sep=".")
+        assert result == {"outer.inner": "value"}
+
+    def test_flatten_with_none_values(self):
+        data = {"a": None, "b": {"c": None}}
+        result = results.flatten_dict(data)
+        assert result == {"a": None, "b_c": None}
 
 
-class TestReadArray:
-    def test_returns_empty_list_for_nonexistent_file(self, tmp_path):
-        source = tmp_path / "nonexistent.json"
-        result = results.read_array(source)
-        assert result == []
+class TestGetHivePartitionPath:
+    def test_creates_partition_path_from_timestamp(self, tmp_path):
+        timestamp = "2025-01-15T10:30:45.000000Z"
+        result = results.get_hive_partition_path(tmp_path, timestamp)
+        expected = tmp_path / "year=2025" / "month=01" / "day=15"
+        assert result == expected
 
-    def test_reads_existing_array(self, tmp_path):
-        source = tmp_path / "data.json"
-        expected_data = [{"key": "value1"}, {"key": "value2"}]
-        source.write_text(json.dumps(expected_data))
+    def test_handles_different_dates(self, tmp_path):
+        timestamp = "2024-12-31T23:59:59.000000Z"
+        result = results.get_hive_partition_path(tmp_path, timestamp)
+        expected = tmp_path / "year=2024" / "month=12" / "day=31"
+        assert result == expected
 
-        result = results.read_array(source)
-        assert result == expected_data
-
-    def test_raises_type_exception_for_non_list(self, tmp_path):
-        source = tmp_path / "data.json"
-        source.write_text(json.dumps({"not": "a list"}))
-
-        with pytest.raises(results.TypeException, match="Expected list type"):
-            results.read_array(source)
-
-    def test_reads_empty_array(self, tmp_path):
-        source = tmp_path / "data.json"
-        source.write_text(json.dumps([]))
-
-        result = results.read_array(source)
-        assert result == []
+    def test_pads_single_digit_month_and_day(self, tmp_path):
+        timestamp = "2025-03-05T08:00:00.000000Z"
+        result = results.get_hive_partition_path(tmp_path, timestamp)
+        expected = tmp_path / "year=2025" / "month=03" / "day=05"
+        assert result == expected
 
 
-class TestUpdateArray:
-    def test_creates_new_file_with_result(self, tmp_path, sample_result):
-        source = tmp_path / "data.json"
+class TestGetCsvFilename:
+    def test_creates_filename_from_timestamp(self):
+        timestamp = "2025-01-15T10:30:45.000000Z"
+        result = results.get_csv_filename(timestamp)
+        assert result == "speedtest_10-30-45.csv"
 
-        results.update_array(source, sample_result)
+    def test_pads_single_digit_time_components(self):
+        timestamp = "2025-01-15T08:05:03.000000Z"
+        result = results.get_csv_filename(timestamp)
+        assert result == "speedtest_08-05-03.csv"
 
-        assert source.exists()
-        data = json.loads(source.read_text())
-        assert data == [sample_result]
-
-    def test_appends_to_existing_array(self, tmp_path, sample_result):
-        source = tmp_path / "data.json"
-        existing_data = [{"existing": "data"}]
-        source.write_text(json.dumps(existing_data))
-
-        results.update_array(source, sample_result)
-
-        data = json.loads(source.read_text())
-        assert len(data) == 2
-        assert data[0] == {"existing": "data"}
-        assert data[1] == sample_result
-
-    def test_creates_parent_directories(self, tmp_path, sample_result):
-        source = tmp_path / "nested" / "path" / "data.json"
-
-        results.update_array(source, sample_result)
-
-        assert source.exists()
-        assert source.parent.exists()
-
-    def test_formats_json_with_indent(self, tmp_path, sample_result):
-        source = tmp_path / "data.json"
-
-        results.update_array(source, sample_result)
-
-        content = source.read_text()
-        assert "    " in content  # Check for indentation
-
-    def test_multiple_updates_accumulate(self, tmp_path, sample_result):
-        source = tmp_path / "data.json"
-
-        results.update_array(source, sample_result)
-        results.update_array(source, sample_result)
-        results.update_array(source, sample_result)
-
-        data = json.loads(source.read_text())
-        assert len(data) == 3
+    def test_handles_midnight(self):
+        timestamp = "2025-01-15T00:00:00.000000Z"
+        result = results.get_csv_filename(timestamp)
+        assert result == "speedtest_00-00-00.csv"
 
 
-class TestTypeException:
-    def test_type_exception_is_exception(self):
-        assert issubclass(results.TypeException, Exception)
+class TestWriteCsv:
+    def test_creates_csv_file(self, tmp_path):
+        filepath = tmp_path / "test.csv"
+        sample_result = {
+            "download": 125000000,
+            "upload": 25000000,
+            "ping": 15,
+            "timestamp": "2025-01-15T10:30:00.000000Z",
+            "bytes_sent": 0,
+            "bytes_received": 0,
+            "share": None,
+            "server": {"name": "Test Server", "country": "US"},
+            "client": {"ip": "192.168.1.1", "isp": "Test ISP"},
+        }
 
-    def test_type_exception_message(self):
-        exc = results.TypeException("Custom message")
-        assert str(exc) == "Custom message"
+        results.write_csv(filepath, sample_result)
+
+        assert filepath.exists()
+
+    def test_csv_has_header(self, tmp_path):
+        filepath = tmp_path / "test.csv"
+        sample_result = {
+            "download": 100,
+            "upload": 50,
+            "server": {"name": "Server"},
+        }
+
+        results.write_csv(filepath, sample_result)
+
+        with filepath.open("r") as f:
+            reader = csv.reader(f)
+            header = next(reader)
+            assert "download" in header
+            assert "upload" in header
+            assert "server_name" in header
+
+    def test_csv_has_data_row(self, tmp_path):
+        filepath = tmp_path / "test.csv"
+        sample_result = {
+            "download": 100,
+            "upload": 50,
+        }
+
+        results.write_csv(filepath, sample_result)
+
+        with filepath.open("r") as f:
+            reader = csv.DictReader(f)
+            row = next(reader)
+            assert row["download"] == "100"
+            assert row["upload"] == "50"
+
+    def test_creates_parent_directories(self, tmp_path):
+        filepath = tmp_path / "nested" / "path" / "test.csv"
+        sample_result = {"key": "value"}
+
+        results.write_csv(filepath, sample_result)
+
+        assert filepath.exists()
+        assert filepath.parent.exists()
+
+    def test_flattens_nested_fields(self, tmp_path):
+        filepath = tmp_path / "test.csv"
+        sample_result = {
+            "top": "level",
+            "server": {"name": "Test", "country": "US"},
+        }
+
+        results.write_csv(filepath, sample_result)
+
+        with filepath.open("r") as f:
+            reader = csv.DictReader(f)
+            row = next(reader)
+            assert "server_name" in row
+            assert "server_country" in row
+            assert row["server_name"] == "Test"
+            assert row["server_country"] == "US"
