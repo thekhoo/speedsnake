@@ -34,3 +34,7 @@ known-first-party = ["speedtest"]
 
 [tool.pyrefly]
 project_includes = ["speedtest"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["."]
