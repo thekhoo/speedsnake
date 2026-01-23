@@ -109,7 +109,7 @@ class TestRun:
                 with pytest.raises(KeyboardInterrupt):
                     loop.run()
 
-        expected_file = tmp_path / "2025-01-20_speedtest.json"
+        expected_file = tmp_path / "year=2025" / "month=01" / "day=20" / "speedtest_14-30-00.csv"
         assert expected_file.exists()
 
 

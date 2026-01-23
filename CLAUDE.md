@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-Internet Speed Check is a Python application that periodically runs Ookla Speedtest CLI, collects results, and stores them as JSON files for monitoring internet connection speed over time.
+Internet Speed Check is a Python application that periodically runs Ookla Speedtest CLI, collects results, and stores them as CSV files in Hive partition format for monitoring internet connection speed over time.
 
 ## Commands
 
@@ -55,7 +55,7 @@ uv sync --group development  # with dev deps
 speedtest/
 ├── handlers/loop.py    # Entry point - polling loop with @loop decorator
 ├── speedtest.py        # Wrapper around speedtest-cli binary (subprocess)
-├── data/results.py     # JSON file persistence (read/append to daily files)
+├── data/results.py     # CSV file persistence with Hive partitioning
 ├── environment.py      # Environment variable configuration
 └── logging.py          # JSON logging with rotating file handler
 ```
@@ -64,7 +64,27 @@ speedtest/
 
 1. `handlers/loop.py` runs infinitely, calling `speedtest.run()` at configured intervals
 2. `speedtest.py` executes `speedtest-cli --secure --json --bytes` via subprocess
-3. Results are appended to `{DATE}_speedtest.json` files in the results directory
+3. Results are written as CSV files in Hive partition format: `results/year=YYYY/month=MM/day=DD/speedtest_HH-MM-SS.csv`
+
+### Output Format
+
+- **Format**: CSV with headers
+- **Partitioning**: Hive format (`year=YYYY/month=MM/day=DD/`)
+- **Filename**: `speedtest_HH-MM-SS.csv` (one file per test run)
+- **Column names**: Flattened from JSON structure
+  - Top-level fields: `download`, `upload`, `ping`, `timestamp`, etc.
+  - Nested fields: joined with underscore (e.g., `server_name`, `client_ip`)
+
+**Example structure:**
+```
+results/
+└── year=2025/
+    └── month=01/
+        └── day=23/
+            ├── speedtest_10-30-45.csv
+            ├── speedtest_10-40-45.csv
+            └── speedtest_10-50-45.csv
+```
 
 ### Configuration (Environment Variables)
 
@@ -77,10 +97,6 @@ speedtest/
 
 - JSON formatted logs written to `logs/speedtest.log`
 - Rotating file handler: 5MB max per file, keeps 10 backup files (`.log.1`, `.log.2`, etc.)
-
-### Bandwidth Conversion
-
-True speed in Mbps = `bandwidth * 8 / 1024 / 1024` (bandwidth is bytes/sec)
 
 ## Code Style
 
@@ -106,6 +122,11 @@ True speed in Mbps = `bandwidth * 8 / 1024 / 1024` (bandwidth is bytes/sec)
 - Create a PR that goes into main
 - Fill the description explaining the changes that have been made
 - Add comments to section that serve as points of interest on the PR
+
+## Agents and Planning
+
+- Scope the work that needs to be done and form a dependency tree.
+- If there are multiple tasks in the dependency tree that can be handled in parallel, spawn agents to complete them
 
 ## Out of Scope
 
