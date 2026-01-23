@@ -100,6 +100,13 @@ True speed in Mbps = `bandwidth * 8 / 1024 / 1024` (bandwidth is bytes/sec)
 - Prefer small, composable functions where possible
 - Write code that is easy to test
 
+## Merge Behaviours
+
+- Always create a new branch that's up to date with main and give it a suitable name
+- Create a PR that goes into main
+- Fill the description explaining the changes that have been made
+- Add comments to section that serve as points of interest on the PR
+
 ## Out of Scope
 
 - Do not introduce new frameworks without asking
