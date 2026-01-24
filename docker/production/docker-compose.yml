@@ -2,7 +2,7 @@ version: "3.9"
 
 services:
   speedtest:
-    image: thekhoo/internet-speed-check:latest
+    image: thekhoo/speedsnake:latest
     container_name: speedtest-service
     restart: unless-stopped
 
