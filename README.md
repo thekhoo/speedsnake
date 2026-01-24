@@ -1,4 +1,4 @@
-# Internet Speed Check
+# SpeedSnake
 
 A Python application that automatically monitors internet speed by periodically running Ookla Speedtest CLI, collecting results, and storing them in an efficient Parquet format for analysis.
 
@@ -26,14 +26,14 @@ docker run -d \
   -v speedtest-results:/app/results \
   -v speedtest-logs:/app/logs \
   -v speedtest-uploads:/app/uploads \
-  thekhoo/internet-speed-check:latest
+  thekhoo/speedsnake:latest
 ```
 
 Or use docker-compose:
 
 ```bash
 # Download production compose file
-curl -O https://raw.githubusercontent.com/yourusername/internet-speed-check/main/docker/production/docker-compose.yml
+curl -O https://raw.githubusercontent.com/yourusername/speedsnake/main/docker/production/docker-compose.yml
 
 # Set your location UUID
 export SPEEDTEST_LOCATION_UUID="your-uuid-here"
@@ -46,8 +46,8 @@ docker-compose up -d
 
 ```bash
 # Clone the repository
-git clone https://github.com/yourusername/internet-speed-check.git
-cd internet-speed-check
+git clone https://github.com/yourusername/speedsnake.git
+cd speedsnake
 
 # Quick start with bootstrap script
 ./bootstrap.sh  # Sets up venv, installs deps, runs with 10-min intervals

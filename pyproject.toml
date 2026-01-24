@@ -1,5 +1,5 @@
 [project]
-name = "internet-speed-check"
+name = "speedsnake"
 version = "0.1.0"
 description = "I am tired of always checking my internet speed..."
 authors = [
@@ -11,7 +11,7 @@ dependencies = [
 requires-python = ">=3.13"
 
 [project.urls]
-repository = "https://github.com/thekhoo/internet-speed-check"
+repository = "https://github.com/thekhoo/speedsnake"
 
 [dependency-groups]
 development = [

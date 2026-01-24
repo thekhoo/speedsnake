@@ -8,7 +8,7 @@ on:
   workflow_dispatch:
 
 env:
-  REGISTRY_IMAGE: thekhoo/internet-speed-check
+  REGISTRY_IMAGE: thekhoo/speedsnake
 
 jobs:
   build-and-push:
@@ -67,4 +67,4 @@ jobs:
           password: ${{ secrets.DOCKERHUB_TOKEN }}
           repository: ${{ env.REGISTRY_IMAGE }}
           readme-filepath: ./README.md
-          short-description: "Internet Speed Check - Automated speedtest monitoring with Parquet storage"
+          short-description: "SpeedSnake - Automated speedtest monitoring with Parquet storage"
