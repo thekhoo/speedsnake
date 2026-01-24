@@ -43,33 +43,6 @@ wheels = [
 ]
 
 [[package]]
-name = "internet-speed-check"
-version = "0.1.0"
-source = { virtual = "." }
-dependencies = [
-    { name = "duckdb" },
-]
-
-[package.dev-dependencies]
-development = [
-    { name = "pyrefly" },
-    { name = "pytest" },
-    { name = "pytest-sugar" },
-    { name = "ruff" },
-]
-
-[package.metadata]
-requires-dist = [{ name = "duckdb", specifier = ">=1.0.0" }]
-
-[package.metadata.requires-dev]
-development = [
-    { name = "pyrefly" },
-    { name = "pytest" },
-    { name = "pytest-sugar" },
-    { name = "ruff" },
-]
-
-[[package]]
 name = "packaging"
 version = "26.0"
 source = { registry = "https://pypi.org/simple" }
@@ -165,6 +138,33 @@ wheels = [
     { url = "https://files.pythonhosted.org/packages/2c/aa/9f89c719c467dfaf8ad799b9bae0df494513fb21d31a6059cb5870e57e74/ruff-0.14.14-py3-none-win32.whl", hash = "sha256:b530c191970b143375b6a68e6f743800b2b786bbcf03a7965b06c4bf04568167", size = 10502442, upload-time = "2026-01-22T22:30:38.93Z" },
     { url = "https://files.pythonhosted.org/packages/87/44/90fa543014c45560cae1fffc63ea059fb3575ee6e1cb654562197e5d16fb/ruff-0.14.14-py3-none-win_amd64.whl", hash = "sha256:3dde1435e6b6fe5b66506c1dff67a421d0b7f6488d466f651c07f4cab3bf20fd", size = 11630486, upload-time = "2026-01-22T22:30:10.852Z" },
     { url = "https://files.pythonhosted.org/packages/9e/6a/40fee331a52339926a92e17ae748827270b288a35ef4a15c9c8f2ec54715/ruff-0.14.14-py3-none-win_arm64.whl", hash = "sha256:56e6981a98b13a32236a72a8da421d7839221fa308b223b9283312312e5ac76c", size = 10920448, upload-time = "2026-01-22T22:30:15.417Z" },
+]
+
+[[package]]
+name = "speedsnake"
+version = "0.1.0"
+source = { virtual = "." }
+dependencies = [
+    { name = "duckdb" },
+]
+
+[package.dev-dependencies]
+development = [
+    { name = "pyrefly" },
+    { name = "pytest" },
+    { name = "pytest-sugar" },
+    { name = "ruff" },
+]
+
+[package.metadata]
+requires-dist = [{ name = "duckdb", specifier = ">=1.0.0" }]
+
+[package.metadata.requires-dev]
+development = [
+    { name = "pyrefly" },
+    { name = "pytest" },
+    { name = "pytest-sugar" },
+    { name = "ruff" },
 ]
 
 [[package]]
