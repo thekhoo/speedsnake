@@ -16,8 +16,48 @@ Internet Speed Check is a Python application that periodically runs Ookla Speedt
 
 ### Run with Docker
 
+All Docker files are organized in the `docker/` directory with separate `development/` and `production/` configurations.
+
+#### Development
+
 ```bash
-docker-compose up
+# Build and run development container
+docker-compose -f docker/development/docker-compose.yml up --build
+
+# Run in detached mode
+docker-compose -f docker/development/docker-compose.yml up -d
+
+# View logs
+docker-compose -f docker/development/docker-compose.yml logs -f
+
+# Stop container
+docker-compose -f docker/development/docker-compose.yml down
+```
+
+#### Production
+
+```bash
+# Using docker-compose (pulls from Docker Hub)
+docker-compose -f docker/production/docker-compose.yml up -d
+
+# Build locally instead of pulling from Docker Hub
+docker-compose -f docker/production/docker-compose.yml up --build -d
+
+# Or run directly with docker
+docker run -d \
+  --name speedtest-service \
+  -e SLEEP_SECONDS=600 \
+  -e SPEEDTEST_LOCATION_UUID=your-uuid-here \
+  -v speedtest-results:/app/results \
+  -v speedtest-logs:/app/logs \
+  -v speedtest-uploads:/app/uploads \
+  thekhoo/internet-speed-check:latest
+```
+
+#### Build production image locally
+
+```bash
+docker build -f docker/production/Dockerfile -t internet-speed-check:latest .
 ```
 
 ### Run directly
@@ -139,6 +179,92 @@ uploads/
 - JSON formatted logs written to `logs/speedtest.log`
 - Rotating file handler: 5MB max per file, keeps 10 backup files (`.log.1`, `.log.2`, etc.)
 
+## Docker
+
+The project supports both development and production Docker setups with different optimizations. All Docker files are organized in the `docker/` directory.
+
+### Directory Structure
+
+```
+docker/
+├── development/
+│   ├── Dockerfile              # Development Dockerfile
+│   └── docker-compose.yml      # Development compose config
+├── production/
+│   ├── Dockerfile              # Production Dockerfile
+│   └── docker-compose.yml      # Production compose config
+└── .dockerignore               # Files to exclude from build
+```
+
+### Docker Files
+
+- **`docker/development/Dockerfile`** - Development-focused build
+  - Faster rebuilds
+  - Includes development dependencies
+  - Designed for volume mounts (hot-reload)
+  - Root user for easier development
+
+- **`docker/production/Dockerfile`** - Production-ready multi-stage build
+  - Minimal image size using multi-stage build
+  - Non-root user for security
+  - Application code baked into image
+  - Health check configured
+  - No volume mounts for code (only data)
+
+- **`docker/development/docker-compose.yml`** - Development configuration
+  - Uses local `Dockerfile`
+  - Mounts source code for hot-reload
+  - Short sleep intervals (30s default)
+  - Local directory mounts for data
+
+- **`docker/production/docker-compose.yml`** - Production configuration
+  - Uses pre-built image from Docker Hub (can be built locally)
+  - Named volumes for data persistence
+  - Longer sleep intervals (600s default)
+  - Restart policy: `unless-stopped`
+  - Health checks enabled
+
+### Docker Hub Deployment
+
+Images are automatically built and pushed to `thekhoo/internet-speed-check` on Docker Hub when:
+
+- Push to `main` branch (tagged as `latest`)
+- Tagged with semantic version (e.g., `v1.2.3`)
+
+**Required GitHub Secrets:**
+
+- `DOCKERHUB_USERNAME` - Docker Hub username
+- `DOCKERHUB_TOKEN` - Docker Hub access token
+
+### Production Deployment
+
+1. Pull the image:
+
+   ```bash
+   docker pull thekhoo/internet-speed-check:latest
+   ```
+
+2. Run with docker-compose:
+
+   ```bash
+   docker-compose -f docker/production/docker-compose.yml up -d
+   ```
+
+3. Set environment variables:
+   ```bash
+   export SPEEDTEST_LOCATION_UUID="your-uuid-here"
+   export SLEEP_SECONDS=600
+   docker-compose -f docker/production/docker-compose.yml up -d
+   ```
+
+### Data Persistence
+
+Production setup uses named Docker volumes:
+
+- `speedtest-results` - CSV files (before conversion)
+- `speedtest-logs` - JSON logs with rotation
+- `speedtest-uploads` - Parquet files organized by location
+
 ## Code Style
 
 - Line length: 120 (ruff)
@@ -151,6 +277,7 @@ uploads/
 
 - Ask clarifying questions in requirements are ambiguous
 - Explain _why_ changes are suggested
+- Always use full names when describing the universe (development or production)
 
 ## Coding Preferences
 

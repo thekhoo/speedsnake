@@ -1,0 +1,37 @@
+version: "3.9"
+
+services:
+  speedtest:
+    image: thekhoo/internet-speed-check:latest
+    container_name: speedtest-service
+    restart: unless-stopped
+
+    # Uncomment to build locally instead of pulling from Docker Hub
+    # build:
+    #   context: ../..  # Project root
+    #   dockerfile: docker/production/Dockerfile
+
+    environment:
+      SLEEP_SECONDS: ${SLEEP_SECONDS:-600}  # Default: 10 minutes
+      SPEEDTEST_LOCATION_UUID: ${SPEEDTEST_LOCATION_UUID:-unknown-location}
+
+    volumes:
+      # Mount only data directories for persistence
+      - speedtest-results:/app/results
+      - speedtest-logs:/app/logs
+      - speedtest-uploads:/app/uploads
+
+    healthcheck:
+      test: ["CMD", "python", "-c", "import pathlib; import sys; sys.exit(0 if pathlib.Path('/app/logs/speedtest.log').exists() else 1)"]
+      interval: 5m
+      timeout: 10s
+      start_period: 30s
+      retries: 3
+
+volumes:
+  speedtest-results:
+    driver: local
+  speedtest-logs:
+    driver: local
+  speedtest-uploads:
+    driver: local
