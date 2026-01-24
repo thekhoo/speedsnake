@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-Internet Speed Check is a Python application that periodically runs Ookla Speedtest CLI, collects results, and stores them as CSV files in Hive partition format. Complete days (before today) are automatically converted to numbered Parquet files with location metadata for efficient storage and analysis.
+SpeedSnake is a Python application that periodically runs Ookla Speedtest CLI, collects results, and stores them as CSV files in Hive partition format. Complete days (before today) are automatically converted to numbered Parquet files with location metadata for efficient storage and analysis.
 
 ## Commands
 
@@ -51,13 +51,13 @@ docker run -d \
   -v speedtest-results:/app/results \
   -v speedtest-logs:/app/logs \
   -v speedtest-uploads:/app/uploads \
-  thekhoo/internet-speed-check:latest
+  thekhoo/speedsnake:latest
 ```
 
 #### Build production image locally
 
 ```bash
-docker build -f docker/production/Dockerfile -t internet-speed-check:latest .
+docker build -f docker/production/Dockerfile -t speedsnake:latest .
 ```
 
 ### Run directly
@@ -226,7 +226,7 @@ docker/
 
 ### Docker Hub Deployment
 
-Images are automatically built and pushed to `thekhoo/internet-speed-check` on Docker Hub when:
+Images are automatically built and pushed to `thekhoo/speedsnake` on Docker Hub when:
 
 - Push to `main` branch (tagged as `latest`)
 - Tagged with semantic version (e.g., `v1.2.3`)
@@ -241,7 +241,7 @@ Images are automatically built and pushed to `thekhoo/internet-speed-check` on D
 1. Pull the image:
 
    ```bash
-   docker pull thekhoo/internet-speed-check:latest
+   docker pull thekhoo/speedsnake:latest
    ```
 
 2. Run with docker-compose:
