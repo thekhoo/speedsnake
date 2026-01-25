@@ -20,7 +20,10 @@ def round_floats_to_ints(data: typing.Any, exclude_keys: set[str] | None = None)
         exclude_keys = set()
 
     if isinstance(data, dict):
-        return {key: round_floats_to_ints(value, exclude_keys) if key not in exclude_keys else value for key, value in data.items()}
+        return {
+            key: round_floats_to_ints(value, exclude_keys) if key not in exclude_keys else value
+            for key, value in data.items()
+        }
     elif isinstance(data, list):
         return [round_floats_to_ints(item, exclude_keys) for item in data]
     elif isinstance(data, float):
