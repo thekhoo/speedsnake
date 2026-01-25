@@ -1,0 +1,121 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: 'IAM deployment role for SpeedSnake infrastructure - allows GitHub Actions to deploy CloudFormation stacks'
+
+Parameters:
+  GitHubOrg:
+    Type: String
+    Default: thekhoo
+    Description: GitHub organization name
+
+  GitHubRepo:
+    Type: String
+    Default: speedsnake
+    Description: GitHub repository name
+
+  CentralOIDCRoleArn:
+    Type: String
+    Description: ARN of the central OIDC role that will assume this deployment role
+    AllowedPattern: 'arn:aws:iam::\d{12}:role/.+'
+    ConstraintDescription: Must be a valid IAM role ARN
+
+Resources:
+  DeploymentRole:
+    Type: AWS::IAM::Role
+    Properties:
+      RoleName: !Sub 'GithubActions-PR-${GitHubOrg}-${GitHubRepo}-deploy'
+      Description: !Sub 'Deployment role for ${GitHubOrg}/${GitHubRepo} repository'
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal:
+              AWS: !Ref CentralOIDCRoleArn
+            Action: sts:AssumeRole
+      Tags:
+        - Key: allow-github-actions-access
+          Value: 'true'
+        - Key: Project
+          Value: speedsnake
+        - Key: ManagedBy
+          Value: CloudFormation
+        - Key: Repository
+          Value: !Sub '${GitHubOrg}/${GitHubRepo}'
+      ManagedPolicyArns: []
+      Policies:
+        - PolicyName: CloudFormationDeployment
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              - Sid: CloudFormationStackManagement
+                Effect: Allow
+                Action:
+                  - cloudformation:CreateStack
+                  - cloudformation:UpdateStack
+                  - cloudformation:DeleteStack
+                  - cloudformation:DescribeStacks
+                  - cloudformation:DescribeStackEvents
+                  - cloudformation:DescribeStackResources
+                  - cloudformation:GetTemplate
+                  - cloudformation:GetTemplateSummary
+                  - cloudformation:ListStacks
+                  - cloudformation:ListStackResources
+                  - cloudformation:ValidateTemplate
+                  - cloudformation:CreateChangeSet
+                  - cloudformation:DescribeChangeSet
+                  - cloudformation:ExecuteChangeSet
+                  - cloudformation:DeleteChangeSet
+                  - cloudformation:ListChangeSets
+                Resource:
+                  - !Sub 'arn:aws:cloudformation:*:${AWS::AccountId}:stack/speedsnake-*/*'
+
+              - Sid: CloudFormationListOperation
+                Effect: Allow
+                Action:
+                  - cloudformation:ListStacks
+                  - cloudformation:ValidateTemplate
+                Resource: '*'
+
+        - PolicyName: S3BucketManagement
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              - Sid: S3BucketOperations
+                Effect: Allow
+                Action:
+                  - s3:CreateBucket
+                  - s3:DeleteBucket
+                  - s3:PutBucketVersioning
+                  - s3:GetBucketVersioning
+                  - s3:PutBucketPublicAccessBlock
+                  - s3:GetBucketPublicAccessBlock
+                  - s3:PutEncryptionConfiguration
+                  - s3:GetEncryptionConfiguration
+                  - s3:PutBucketTagging
+                  - s3:GetBucketTagging
+                  - s3:GetBucketLocation
+                  - s3:ListBucket
+                  - s3:PutBucketPolicy
+                  - s3:GetBucketPolicy
+                  - s3:DeleteBucketPolicy
+                Resource:
+                  - arn:aws:s3:::speedsnake*
+
+              - Sid: S3ListAllBuckets
+                Effect: Allow
+                Action:
+                  - s3:ListAllMyBuckets
+                  - s3:GetBucketLocation
+                Resource: '*'
+
+Outputs:
+  RoleArn:
+    Description: ARN of the deployment role
+    Value: !GetAtt DeploymentRole.Arn
+    Export:
+      Name: !Sub '${AWS::StackName}-RoleArn'
+
+  RoleName:
+    Description: Name of the deployment role
+    Value: !Ref DeploymentRole
+    Export:
+      Name: !Sub '${AWS::StackName}-RoleName'
