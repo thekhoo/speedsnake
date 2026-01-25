@@ -4,6 +4,7 @@ from unittest.mock import MagicMock, patch
 import pytest
 
 from speedtest.service import speedtest
+from speedtest.service.speedtest import round_floats_to_ints
 
 
 @pytest.fixture
@@ -23,7 +24,7 @@ def sample_speedtest_response():
             "id": 12345,
             "host": "speedtest.example.com:8080",
             "d": 10.5,
-            "latency": 5.2,
+            "latency": 5,
         },
         "timestamp": "2025-01-15T10:30:00.000000Z",
         "bytes_sent": 32000000,
@@ -111,3 +112,110 @@ class TestGetDateStrFromResult:
         result = {"timestamp": "2025-06-15T08:00:00"}
         date_str = speedtest.get_date_str_from_result(result)
         assert date_str == "2025-06-15"
+
+
+class TestRoundFloatsToInts:
+    def test_converts_float_to_int(self):
+        assert round_floats_to_ints(1.5) == 2
+        assert round_floats_to_ints(1.4) == 1
+        assert round_floats_to_ints(10.5) == 10  # Python uses banker's rounding (round half to even)
+
+    def test_preserves_non_float_primitives(self):
+        assert round_floats_to_ints(42) == 42
+        assert round_floats_to_ints("text") == "text"
+        assert round_floats_to_ints(True) is True
+        assert round_floats_to_ints(None) is None
+
+    def test_converts_floats_in_dict(self):
+        data = {"value": 1.3521, "score": 103.8198, "name": "Singapore", "id": 12345}
+        result = round_floats_to_ints(data)
+        assert result == {"value": 1, "score": 104, "name": "Singapore", "id": 12345}
+
+    def test_converts_floats_in_nested_dict(self):
+        data = {
+            "server": {"value": 1.3521, "score": 103.8198, "latency": 10.5},
+            "client": {"value": 1.3521, "score": 103.8198},
+        }
+        result = round_floats_to_ints(data)
+        assert result == {
+            "server": {"value": 1, "score": 104, "latency": 10},  # 10.5 rounds to 10 (banker's rounding)
+            "client": {"value": 1, "score": 104},
+        }
+
+    def test_converts_floats_in_list(self):
+        data = [1.5, 2.7, 3.2]
+        result = round_floats_to_ints(data)
+        assert result == [2, 3, 3]
+
+    def test_converts_floats_in_mixed_structures(self):
+        data = {"values": [1.5, 2.7], "nested": {"score": 98.6}}
+        result = round_floats_to_ints(data)
+        assert result == {"values": [2, 3], "nested": {"score": 99}}
+
+    def test_excludes_specified_keys_from_conversion(self):
+        data = {"lat": 1.3521, "lon": 103.8198, "d": 10.5, "latency": 5.2}
+        result = round_floats_to_ints(data, exclude_keys={"lat", "lon", "d"})
+        assert result == {"lat": 1.3521, "lon": 103.8198, "d": 10.5, "latency": 5}
+
+    def test_excludes_keys_in_nested_structures(self):
+        data = {
+            "server": {"lat": 1.3521, "lon": 103.8198, "d": 10.5, "latency": 5.2},
+            "client": {"lat": 1.3521, "lon": 103.8198},
+        }
+        result = round_floats_to_ints(data, exclude_keys={"lat", "lon", "d"})
+        assert result == {
+            "server": {"lat": 1.3521, "lon": 103.8198, "d": 10.5, "latency": 5},
+            "client": {"lat": 1.3521, "lon": 103.8198},
+        }
+
+    def test_run_converts_floats_to_ints(self):
+        """Verify that run() applies float-to-int conversion to speedtest output."""
+        speedtest_response_with_floats = {
+            "download": 125000000,
+            "upload": 25000000,
+            "ping": 15,
+            "server": {
+                "url": "http://speedtest.example.com",
+                "lat": 1.3521,
+                "lon": 103.8198,
+                "name": "Singapore",
+                "country": "Singapore",
+                "cc": "SG",
+                "sponsor": "Test ISP",
+                "id": 12345,
+                "host": "speedtest.example.com:8080",
+                "d": 10.5,
+                "latency": 5.2,
+            },
+            "timestamp": "2025-01-15T10:30:00.000000Z",
+            "bytes_sent": 32000000,
+            "bytes_received": 156000000,
+            "share": None,
+            "client": {
+                "ip": "192.168.1.1",
+                "lat": 1.3521,
+                "lon": 103.8198,
+                "isp": "Test ISP",
+                "isprating": "3.5",
+                "rating": 0,
+                "ispdlavg": 0,
+                "ispulavg": 0,
+                "loggedin": False,
+                "country": "SG",
+            },
+        }
+
+        mock_result = MagicMock()
+        mock_result.returncode = 0
+        mock_result.stdout = json.dumps(speedtest_response_with_floats)
+
+        with patch("subprocess.run", return_value=mock_result):
+            result = speedtest.run()
+
+            # Verify floats were converted to ints, except lat, lon, and d which are excluded
+            assert result["server"]["lat"] == 1.3521  # Excluded from rounding
+            assert result["server"]["lon"] == 103.8198  # Excluded from rounding
+            assert result["server"]["d"] == 10.5  # Excluded from rounding
+            assert result["server"]["latency"] == 5  # Rounded
+            assert result["client"]["lat"] == 1.3521  # Excluded from rounding
+            assert result["client"]["lon"] == 103.8198  # Excluded from rounding

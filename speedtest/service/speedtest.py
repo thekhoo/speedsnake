@@ -6,6 +6,29 @@ import typing
 logger = logging.getLogger(__name__)
 
 
+def round_floats_to_ints(data: typing.Any, exclude_keys: set[str] | None = None) -> typing.Any:
+    """Recursively round all float values to integers in a data structure.
+
+    Args:
+        data: Input data (dict, list, or primitive value)
+        exclude_keys: Set of keys whose float values should not be rounded
+
+    Returns:
+        Data with all floats converted to integers via rounding (except excluded keys)
+    """
+    if exclude_keys is None:
+        exclude_keys = set()
+
+    if isinstance(data, dict):
+        return {key: round_floats_to_ints(value, exclude_keys) if key not in exclude_keys else value for key, value in data.items()}
+    elif isinstance(data, list):
+        return [round_floats_to_ints(item, exclude_keys) for item in data]
+    elif isinstance(data, float):
+        return round(data)
+    else:
+        return data
+
+
 class SpeedtestServerResponse(typing.TypedDict):
     url: str
     lat: float
@@ -17,7 +40,7 @@ class SpeedtestServerResponse(typing.TypedDict):
     id: int
     host: str
     d: float
-    latency: float
+    latency: int
 
 
 class SpeedtestClientResponse(typing.TypedDict):
@@ -56,7 +79,7 @@ def run(flags: typing.Optional[list[str]] = None) -> SpeedtestResponse:
         raise Exception("Speedtest failed")
 
     res_dict = json.loads(result.stdout)
-    return res_dict
+    return round_floats_to_ints(res_dict, exclude_keys={"lat", "lon", "d"})
 
 
 def get_date_str_from_result(result: SpeedtestResponse) -> str:
