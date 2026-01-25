@@ -15,13 +15,13 @@ def sample_speedtest_response():
         "ping": 15,
         "server": {
             "url": "http://speedtest.example.com",
-            "lat": 1.3521,
-            "lon": 103.8198,
+            "lat": "1.3521",
+            "lon": "103.8198",
             "name": "Singapore",
             "country": "Singapore",
             "cc": "SG",
             "sponsor": "Test ISP",
-            "id": 12345,
+            "id": "12345",
             "host": "speedtest.example.com:8080",
             "d": 10.5,
             "latency": 5,
@@ -32,14 +32,14 @@ def sample_speedtest_response():
         "share": None,
         "client": {
             "ip": "192.168.1.1",
-            "lat": 1.3521,
-            "lon": 103.8198,
+            "lat": "1.3521",
+            "lon": "103.8198",
             "isp": "Test ISP",
             "isprating": "3.5",
-            "rating": 0,
-            "ispdlavg": 0,
-            "ispulavg": 0,
-            "loggedin": False,
+            "rating": "0",
+            "ispdlavg": "0",
+            "ispulavg": "0",
+            "loggedin": "0",
             "country": "SG",
         },
     }
@@ -171,37 +171,37 @@ class TestRoundFloatsToInts:
     def test_run_converts_floats_to_ints(self):
         """Verify that run() applies float-to-int conversion to speedtest output."""
         speedtest_response_with_floats = {
-            "download": 125000000,
-            "upload": 25000000,
-            "ping": 15,
+            "download": 68416346.56931093,
+            "upload": 19265730.143106185,
+            "ping": 9.348,
             "server": {
                 "url": "http://speedtest.example.com",
-                "lat": 1.3521,
-                "lon": 103.8198,
-                "name": "Singapore",
-                "country": "Singapore",
-                "cc": "SG",
+                "lat": "51.5171",
+                "lon": "-0.1062",
+                "name": "London",
+                "country": "United Kingdom",
+                "cc": "GB",
                 "sponsor": "Test ISP",
-                "id": 12345,
+                "id": "12345",
                 "host": "speedtest.example.com:8080",
-                "d": 10.5,
-                "latency": 5.2,
+                "d": 544.9533384101816,
+                "latency": 9.348,
             },
-            "timestamp": "2025-01-15T10:30:00.000000Z",
-            "bytes_sent": 32000000,
-            "bytes_received": 156000000,
+            "timestamp": "2026-01-23T22:56:02.751950Z",
+            "bytes_sent": 24313856,
+            "bytes_received": 85717356,
             "share": None,
             "client": {
-                "ip": "192.168.1.1",
-                "lat": 1.3521,
-                "lon": 103.8198,
-                "isp": "Test ISP",
-                "isprating": "3.5",
-                "rating": 0,
-                "ispdlavg": 0,
-                "ispulavg": 0,
-                "loggedin": False,
-                "country": "SG",
+                "ip": "81.154.179.120",
+                "lat": "55.7991",
+                "lon": "-4.1357",
+                "isp": "BT",
+                "isprating": "3.7",
+                "rating": "0",
+                "ispdlavg": "0",
+                "ispulavg": "0",
+                "loggedin": "0",
+                "country": "GB",
             },
         }
 
@@ -212,10 +212,22 @@ class TestRoundFloatsToInts:
         with patch("subprocess.run", return_value=mock_result):
             result = speedtest.run()
 
-            # Verify floats were converted to ints, except lat, lon, and d which are excluded
-            assert result["server"]["lat"] == 1.3521  # Excluded from rounding
-            assert result["server"]["lon"] == 103.8198  # Excluded from rounding
-            assert result["server"]["d"] == 10.5  # Excluded from rounding
-            assert result["server"]["latency"] == 5  # Rounded
-            assert result["client"]["lat"] == 1.3521  # Excluded from rounding
-            assert result["client"]["lon"] == 103.8198  # Excluded from rounding
+            # Verify floats were converted to ints
+            assert result["download"] == 68416347  # Rounded from 68416346.56931093
+            assert result["upload"] == 19265730  # Rounded from 19265730.143106185
+            assert result["ping"] == 9  # Rounded from 9.348
+            assert result["server"]["latency"] == 9  # Rounded from 9.348
+
+            # Verify lat, lon, d are excluded from rounding (and are strings/floats)
+            assert result["server"]["lat"] == "51.5171"  # String preserved
+            assert result["server"]["lon"] == "-0.1062"  # String preserved
+            assert result["server"]["d"] == 544.9533384101816  # Float preserved
+            assert result["client"]["lat"] == "55.7991"  # String preserved
+            assert result["client"]["lon"] == "-4.1357"  # String preserved
+
+            # Verify other string fields are preserved
+            assert result["server"]["id"] == "12345"
+            assert result["client"]["rating"] == "0"
+            assert result["client"]["ispdlavg"] == "0"
+            assert result["client"]["ispulavg"] == "0"
+            assert result["client"]["loggedin"] == "0"

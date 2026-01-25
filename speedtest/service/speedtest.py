@@ -34,13 +34,13 @@ def round_floats_to_ints(data: typing.Any, exclude_keys: set[str] | None = None)
 
 class SpeedtestServerResponse(typing.TypedDict):
     url: str
-    lat: float
-    lon: float
+    lat: str
+    lon: str
     name: str
     country: str
     cc: str
     sponsor: str
-    id: int
+    id: str
     host: str
     d: float
     latency: int
@@ -48,14 +48,14 @@ class SpeedtestServerResponse(typing.TypedDict):
 
 class SpeedtestClientResponse(typing.TypedDict):
     ip: str
-    lat: float
-    lon: float
+    lat: str
+    lon: str
     isp: str
     isprating: str
-    rating: int
-    ispdlavg: int
-    ispulavg: int
-    loggedin: bool
+    rating: str
+    ispdlavg: str
+    ispulavg: str
+    loggedin: str
     country: str
 
 
