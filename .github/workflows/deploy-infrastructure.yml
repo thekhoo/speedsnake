@@ -1,0 +1,127 @@
+name: Deploy Infrastructure
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - 'infrastructure/template.yml'
+      - '.github/workflows/deploy-infrastructure.yml'
+  workflow_dispatch:
+    inputs:
+      bucket_name:
+        description: 'S3 bucket base name (default: speedsnake)'
+        required: false
+        default: 'speedsnake'
+      environment:
+        description: 'Deployment environment'
+        required: false
+        default: 'production'
+        type: choice
+        options:
+          - production
+          - staging
+          - development
+
+permissions:
+  id-token: write
+  contents: read
+
+env:
+  AWS_REGION: ${{ secrets.AWS_REGION }}
+  STACK_NAME: speedsnake-infrastructure
+
+jobs:
+  deploy-infrastructure:
+    name: Deploy Infrastructure
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Configure AWS credentials (Step 1 - Central OIDC Role)
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ secrets.AWS_OIDC_ROLE_ARN }}
+          aws-region: ${{ env.AWS_REGION }}
+          role-session-name: github-deploy-infra-step1
+
+      - name: Configure AWS credentials (Step 2 - Assume Deployment Role)
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ secrets.AWS_DEPLOY_ROLE_ARN }}
+          aws-region: ${{ env.AWS_REGION }}
+          role-session-name: github-deploy-infra-step2
+          role-chaining: true
+
+      - name: Validate CloudFormation template
+        run: |
+          echo "Validating CloudFormation template..."
+          aws cloudformation validate-template \
+            --template-body file://infrastructure/template.yml
+
+      - name: Deploy CloudFormation stack
+        run: |
+          echo "Deploying infrastructure stack: ${{ env.STACK_NAME }}"
+
+          # Set parameters based on workflow trigger
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            BUCKET_NAME="${{ github.event.inputs.bucket_name }}"
+            ENVIRONMENT="${{ github.event.inputs.environment }}"
+          else
+            BUCKET_NAME="speedsnake"
+            ENVIRONMENT="production"
+          fi
+
+          aws cloudformation deploy \
+            --stack-name ${{ env.STACK_NAME }} \
+            --template-file infrastructure/template.yml \
+            --parameter-overrides \
+              BucketName=${BUCKET_NAME} \
+              Environment=${ENVIRONMENT} \
+            --tags \
+              Project=speedsnake \
+              ManagedBy=GitHubActions \
+              GitCommit=${{ github.sha }} \
+            --no-fail-on-empty-changeset \
+            --region ${{ env.AWS_REGION }}
+
+      - name: Get stack outputs
+        id: stack-outputs
+        run: |
+          echo "Fetching stack outputs..."
+          OUTPUTS=$(aws cloudformation describe-stacks \
+            --stack-name ${{ env.STACK_NAME }} \
+            --query 'Stacks[0].Outputs' \
+            --output json)
+
+          echo "Stack outputs:"
+          echo "$OUTPUTS" | jq -r '.[] | "\(.OutputKey): \(.OutputValue)"'
+
+          # Extract specific outputs for use in subsequent steps
+          BUCKET_NAME=$(echo "$OUTPUTS" | jq -r '.[] | select(.OutputKey=="BucketName") | .OutputValue')
+          BUCKET_ARN=$(echo "$OUTPUTS" | jq -r '.[] | select(.OutputKey=="BucketArn") | .OutputValue')
+          BUCKET_REGION=$(echo "$OUTPUTS" | jq -r '.[] | select(.OutputKey=="BucketRegion") | .OutputValue')
+
+          echo "bucket-name=${BUCKET_NAME}" >> $GITHUB_OUTPUT
+          echo "bucket-arn=${BUCKET_ARN}" >> $GITHUB_OUTPUT
+          echo "bucket-region=${BUCKET_REGION}" >> $GITHUB_OUTPUT
+
+      - name: Display deployment summary
+        run: |
+          echo "### Deployment Summary :rocket:" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "**Stack Name:** ${{ env.STACK_NAME }}" >> $GITHUB_STEP_SUMMARY
+          echo "**Region:** ${{ env.AWS_REGION }}" >> $GITHUB_STEP_SUMMARY
+          echo "**Commit:** ${{ github.sha }}" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "#### Resources Created" >> $GITHUB_STEP_SUMMARY
+          echo "- **S3 Bucket Name:** ${{ steps.stack-outputs.outputs.bucket-name }}" >> $GITHUB_STEP_SUMMARY
+          echo "- **S3 Bucket ARN:** ${{ steps.stack-outputs.outputs.bucket-arn }}" >> $GITHUB_STEP_SUMMARY
+          echo "- **S3 Bucket Region:** ${{ steps.stack-outputs.outputs.bucket-region }}" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "#### Configuration" >> $GITHUB_STEP_SUMMARY
+          echo "- Versioning: Enabled" >> $GITHUB_STEP_SUMMARY
+          echo "- Encryption: AES256" >> $GITHUB_STEP_SUMMARY
+          echo "- Public Access: Blocked" >> $GITHUB_STEP_SUMMARY
