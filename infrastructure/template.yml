@@ -1,0 +1,66 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: 'SpeedSnake Infrastructure - S3 bucket for storing speedtest results'
+
+Parameters:
+  BucketName:
+    Type: String
+    Default: speedsnake
+    Description: Base name for the S3 bucket (will be suffixed with account ID for uniqueness)
+    AllowedPattern: '^[a-z0-9][a-z0-9-]*[a-z0-9]$'
+    MinLength: 3
+    MaxLength: 50
+    ConstraintDescription: Must be lowercase alphanumeric with hyphens, 3-50 characters
+
+  Environment:
+    Type: String
+    Default: production
+    Description: Deployment environment
+    AllowedValues:
+      - production
+      - staging
+      - development
+
+Resources:
+  SpeedtestResultsBucket:
+    Type: AWS::S3::Bucket
+    Properties:
+      BucketName: !Sub '${BucketName}-${AWS::AccountId}'
+      VersioningConfiguration:
+        Status: Enabled
+      BucketEncryption:
+        ServerSideEncryptionConfiguration:
+          - ServerSideEncryptionByDefault:
+              SSEAlgorithm: AES256
+      PublicAccessBlockConfiguration:
+        BlockPublicAcls: true
+        BlockPublicPolicy: true
+        IgnorePublicAcls: true
+        RestrictPublicBuckets: true
+      Tags:
+        - Key: Project
+          Value: speedsnake
+        - Key: Environment
+          Value: !Ref Environment
+        - Key: ManagedBy
+          Value: CloudFormation
+        - Key: Purpose
+          Value: speedtest-results-storage
+
+Outputs:
+  BucketName:
+    Description: Name of the S3 bucket for speedtest results
+    Value: !Ref SpeedtestResultsBucket
+    Export:
+      Name: !Sub '${AWS::StackName}-BucketName'
+
+  BucketArn:
+    Description: ARN of the S3 bucket
+    Value: !GetAtt SpeedtestResultsBucket.Arn
+    Export:
+      Name: !Sub '${AWS::StackName}-BucketArn'
+
+  BucketRegion:
+    Description: Region where the bucket was created
+    Value: !Ref AWS::Region
+    Export:
+      Name: !Sub '${AWS::StackName}-BucketRegion'
