@@ -2,6 +2,12 @@ name: 'Deploy CloudFormation Stack'
 description: 'Validates and deploys a CloudFormation template with optional parameters'
 
 inputs:
+  oidc_entry_role_arn:
+    description: 'ARN of the OIDC entry role (github-actions-oidc-entry-role)'
+    required: true
+  deployment_role_arn:
+    description: 'ARN or name of the deployment role to assume for CloudFormation operations. If a role name is provided (without arn: prefix), the full ARN will be constructed automatically.'
+    required: true
   stack_name:
     description: 'CloudFormation stack name'
     required: true
@@ -36,6 +42,41 @@ outputs:
 runs:
   using: 'composite'
   steps:
+    - name: Configure AWS credentials (OIDC Entry Role)
+      uses: aws-actions/configure-aws-credentials@v4
+      with:
+        role-to-assume: ${{ inputs.oidc_entry_role_arn }}
+        aws-region: ${{ inputs.aws_region }}
+        role-session-name: github-deploy-cfn-step1
+
+    - name: Construct deployment role ARN if needed
+      id: deployment-role
+      shell: bash
+      run: |
+        DEPLOYMENT_ROLE_INPUT="${{ inputs.deployment_role_arn }}"
+
+        # Check if input is already a full ARN
+        if [[ "$DEPLOYMENT_ROLE_INPUT" == arn:aws:iam::* ]]; then
+          echo "Using provided ARN: $DEPLOYMENT_ROLE_INPUT"
+          DEPLOYMENT_ROLE_ARN="$DEPLOYMENT_ROLE_INPUT"
+        else
+          # Input is a role name, construct full ARN
+          echo "Input is role name, constructing full ARN..."
+          ACCOUNT_ID=$(aws sts get-caller-identity --query Account --output text)
+          DEPLOYMENT_ROLE_ARN="arn:aws:iam::${ACCOUNT_ID}:role/${DEPLOYMENT_ROLE_INPUT}"
+          echo "Constructed ARN: $DEPLOYMENT_ROLE_ARN"
+        fi
+
+        echo "deployment_role_arn=${DEPLOYMENT_ROLE_ARN}" >> $GITHUB_OUTPUT
+
+    - name: Configure AWS credentials (Deployment Role)
+      uses: aws-actions/configure-aws-credentials@v4
+      with:
+        role-to-assume: ${{ steps.deployment-role.outputs.deployment_role_arn }}
+        aws-region: ${{ inputs.aws_region }}
+        role-session-name: github-deploy-cfn-step2
+        role-chaining: true
+
     - name: Validate CloudFormation template
       shell: bash
       run: |
