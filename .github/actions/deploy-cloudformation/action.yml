@@ -1,0 +1,113 @@
+name: 'Deploy CloudFormation Stack'
+description: 'Validates and deploys a CloudFormation template with optional parameters'
+
+inputs:
+  stack_name:
+    description: 'CloudFormation stack name'
+    required: true
+  template_file:
+    description: 'Path to CloudFormation template file'
+    required: true
+  parameters:
+    description: 'CloudFormation parameters (space-separated KEY=VALUE pairs)'
+    required: false
+    default: ''
+  capabilities:
+    description: 'CloudFormation capabilities (e.g., CAPABILITY_NAMED_IAM)'
+    required: false
+    default: ''
+  aws_region:
+    description: 'AWS region for deployment'
+    required: true
+  summary_title:
+    description: 'Title for deployment summary'
+    required: false
+    default: 'Deployment Summary'
+  summary_icon:
+    description: 'Icon emoji for deployment summary'
+    required: false
+    default: ':rocket:'
+
+outputs:
+  stack_outputs:
+    description: 'JSON string of stack outputs'
+    value: ${{ steps.get-outputs.outputs.stack_outputs }}
+
+runs:
+  using: 'composite'
+  steps:
+    - name: Validate CloudFormation template
+      shell: bash
+      run: |
+        echo "Validating CloudFormation template: ${{ inputs.template_file }}"
+        aws cloudformation validate-template \
+          --template-body file://${{ inputs.template_file }}
+
+    - name: Deploy CloudFormation stack
+      shell: bash
+      run: |
+        echo "Deploying CloudFormation stack: ${{ inputs.stack_name }}"
+
+        # Build deploy command
+        DEPLOY_CMD="aws cloudformation deploy \
+          --stack-name ${{ inputs.stack_name }} \
+          --template-file ${{ inputs.template_file }} \
+          --tags \
+            Project=speedsnake \
+            ManagedBy=GitHubActions \
+            GitCommit=${{ github.sha }} \
+          --no-fail-on-empty-changeset \
+          --region ${{ inputs.aws_region }}"
+
+        # Add parameters if provided
+        if [ -n "${{ inputs.parameters }}" ]; then
+          DEPLOY_CMD="$DEPLOY_CMD --parameter-overrides ${{ inputs.parameters }}"
+        fi
+
+        # Add capabilities if provided
+        if [ -n "${{ inputs.capabilities }}" ]; then
+          DEPLOY_CMD="$DEPLOY_CMD --capabilities ${{ inputs.capabilities }}"
+        fi
+
+        # Execute deployment
+        eval "$DEPLOY_CMD"
+
+    - name: Get stack outputs
+      id: get-outputs
+      shell: bash
+      run: |
+        echo "Fetching stack outputs..."
+        OUTPUTS=$(aws cloudformation describe-stacks \
+          --stack-name ${{ inputs.stack_name }} \
+          --query 'Stacks[0].Outputs' \
+          --output json)
+
+        echo "Stack outputs:"
+        echo "$OUTPUTS" | jq -r '.[] | "\(.OutputKey): \(.OutputValue)"'
+
+        # Export outputs as JSON for potential use by caller
+        echo "stack_outputs<<EOF" >> $GITHUB_OUTPUT
+        echo "$OUTPUTS" >> $GITHUB_OUTPUT
+        echo "EOF" >> $GITHUB_OUTPUT
+
+    - name: Display deployment summary
+      shell: bash
+      run: |
+        echo "### ${{ inputs.summary_title }} ${{ inputs.summary_icon }}" >> $GITHUB_STEP_SUMMARY
+        echo "" >> $GITHUB_STEP_SUMMARY
+        echo "**Stack Name:** ${{ inputs.stack_name }}" >> $GITHUB_STEP_SUMMARY
+        echo "**Template:** ${{ inputs.template_file }}" >> $GITHUB_STEP_SUMMARY
+        echo "**Region:** ${{ inputs.aws_region }}" >> $GITHUB_STEP_SUMMARY
+        echo "**Commit:** ${{ github.sha }}" >> $GITHUB_STEP_SUMMARY
+        echo "" >> $GITHUB_STEP_SUMMARY
+
+        # Display stack outputs if they exist
+        OUTPUTS=$(aws cloudformation describe-stacks \
+          --stack-name ${{ inputs.stack_name }} \
+          --query 'Stacks[0].Outputs' \
+          --output json 2>/dev/null || echo "[]")
+
+        if [ "$(echo "$OUTPUTS" | jq 'length')" -gt 0 ]; then
+          echo "#### Stack Outputs" >> $GITHUB_STEP_SUMMARY
+          echo "$OUTPUTS" | jq -r '.[] | "- **\(.OutputKey):** \(.OutputValue)"' >> $GITHUB_STEP_SUMMARY
+        fi
