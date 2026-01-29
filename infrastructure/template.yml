@@ -6,10 +6,6 @@ Parameters:
   ServiceName:
     Description: The name of this service
     Type: String
-    AllowedPattern: '^[a-z0-9][a-z0-9-]*[a-z0-9]$'
-    MinLength: 3
-    MaxLength: 50
-    ConstraintDescription: Must be lowercase alphanumeric with hyphens, 3-50 characters
 
   Universe:
     Description: The universe we live in

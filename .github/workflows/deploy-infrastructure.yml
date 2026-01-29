@@ -55,6 +55,18 @@ jobs:
           python-version: ${{ matrix.python-version }}
           check-type: test
 
+  validate-templates:
+    name: Validate CloudFormation Templates
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Validate templates
+        uses: ./.github/actions/validate-cloudformation
+        with:
+          template-paths: infrastructure/deployment-role.yml infrastructure/template.yml
+
   check-changes:
     name: Check for Changes
     runs-on: ubuntu-latest
@@ -106,11 +118,12 @@ jobs:
   deploy-deployment-role:
     name: Deploy Deployment Role (${{ matrix.universe }})
     runs-on: ubuntu-latest
-    needs: [lint, test, check-changes]
+    needs: [lint, test, validate-templates, check-changes]
     if: |
       needs.check-changes.outputs.deployment_role_changed == 'true' &&
       needs.lint.result == 'success' &&
-      needs.test.result == 'success'
+      needs.test.result == 'success' &&
+      needs.validate-templates.result == 'success'
     strategy:
       matrix:
         universe: [production]
@@ -131,12 +144,13 @@ jobs:
   deploy-infrastructure:
     name: Deploy Infrastructure (${{ matrix.universe }})
     runs-on: ubuntu-latest
-    needs: [lint, test, check-changes, deploy-deployment-role]
+    needs: [lint, test, validate-templates, check-changes, deploy-deployment-role]
     if: |
       always() &&
       needs.check-changes.outputs.infrastructure_changed == 'true' &&
       needs.lint.result == 'success' &&
       needs.test.result == 'success' &&
+      needs.validate-templates.result == 'success' &&
       (needs.deploy-deployment-role.result == 'success' || needs.deploy-deployment-role.result == 'skipped')
     strategy:
       matrix:
