@@ -4,49 +4,43 @@ This directory contains CloudFormation templates and deployment scripts for Spee
 
 ## Overview
 
-The infrastructure uses a two-stage CloudFormation deployment system:
+The infrastructure uses a **fully automated** two-stage CloudFormation deployment system via GitHub Actions:
 
-1. **IAM Deployment Role** (`deployment-role.yml`) - Creates a deployment role specific to this repository
+1. **IAM Deployment Role** (`deployment-role.yml`) - Automatically creates a repository-specific deployment role
 2. **Infrastructure Resources** (`template.yml`) - Creates the S3 bucket for storing speedtest results
 
-The deployment uses GitHub Actions with OIDC authentication and role chaining:
+The deployment uses GitHub Actions with OIDC authentication and multi-stage role chaining:
 ```
-GitHub Actions → Central OIDC Role → Deployment Role → Deploy Infrastructure
+GitHub Actions → OIDC Entry Role → Create Deployment Role → Deploy deployment-role.yml (creates github-actions-{owner}-{repo})
+                                  → OIDC Entry Role → github-actions-{owner}-{repo} → Deploy template.yml
 ```
+
+**Key Feature**: The deployment role is created automatically by the GitHub Actions workflow - no manual script execution required!
 
 ## Files
 
 - **`deployment-role.yml`** - CloudFormation template for the IAM deployment role
 - **`template.yml`** - CloudFormation template for S3 bucket infrastructure
-- **`update-deployment-role.py`** - Python script to deploy/update the IAM role locally
+- **`update-deployment-role.py`** - Python script to deploy/update the IAM role locally (optional, for manual deployment)
 - **`README.md`** - This documentation file
 
 ## Prerequisites
 
 ### AWS Setup
 
-1. **Central OIDC Role** - A central OIDC role must already exist that can assume roles with:
-   - Prefix: `GithubActions-PR-thekhoo-*`
-   - Tag: `allow-github-actions-access=true`
+The following IAM roles must already exist in your AWS account:
 
-2. **AWS Credentials** - For local IAM role deployment, configure AWS credentials:
-   ```bash
-   # Option 1: AWS CLI profile
-   export AWS_PROFILE=your-profile
+1. **OIDC Entry Role** (`github-actions-oidc-entry-role`)
+   - Purpose: Entry point for GitHub Actions runners
+   - Allows GitHub OIDC provider to assume this role
+   - Can assume other roles for specific operations
 
-   # Option 2: Environment variables
-   export AWS_ACCESS_KEY_ID=your-key
-   export AWS_SECRET_ACCESS_KEY=your-secret
-   ```
+2. **Create Deployment Role** (`github-actions-create-deployment-role`)
+   - Purpose: Universal role that can create repository-specific deployment roles
+   - Trust policy: Can be assumed by `github-actions-oidc-entry-role`
+   - Permissions: Create/update IAM roles and CloudFormation stacks for deployment roles
 
-3. **Python Dependencies** - Install boto3 for the deployment script:
-   ```bash
-   # With pip
-   pip install boto3
-
-   # With uv
-   uv pip install boto3
-   ```
+These are **one-time setup** roles that are shared across all repositories in your organization.
 
 ### GitHub Secrets
 
@@ -54,63 +48,54 @@ The following secrets must be configured in the GitHub repository (Settings → 
 
 | Secret Name | Description | Example |
 |-------------|-------------|---------|
-| `AWS_OIDC_ROLE_ARN` | ARN of the central OIDC role | `arn:aws:iam::123456789012:role/CentralOIDCRole` |
-| `AWS_DEPLOY_ROLE_ARN` | ARN of the speedsnake deployment role (created in Step 1) | `arn:aws:iam::123456789012:role/GithubActions-PR-thekhoo-speedsnake-deploy` |
+| `AWS_OIDC_ENTRY_ROLE_ARN` | ARN of the OIDC entry role | `arn:aws:iam::123456789012:role/github-actions-oidc-entry-role` |
+| `AWS_CREATE_DEPLOYMENT_ROLE_ARN` | ARN of the create deployment role | `arn:aws:iam::123456789012:role/github-actions-create-deployment-role` |
 | `AWS_REGION` | Target AWS region for deployments | `us-east-1` |
+
+**Note**: The repository-specific deployment role (`github-actions-{owner}-{repo}`) is created automatically by the workflow - no secret needed!
 
 ## Deployment Order
 
-### Step 1: Deploy IAM Role (One-Time Setup)
+### Setup: Configure GitHub Secrets (One-Time)
 
-The IAM deployment role must be created first, before the infrastructure can be deployed.
+Add the required secrets to your GitHub repository (Settings → Secrets and variables → Actions):
 
-**Run the deployment script locally:**
+1. `AWS_OIDC_ENTRY_ROLE_ARN` - ARN of your OIDC entry role
+2. `AWS_CREATE_DEPLOYMENT_ROLE_ARN` - ARN of your create deployment role
+3. `AWS_REGION` - Target AWS region (e.g., `us-east-1`)
 
-```bash
-cd infrastructure
+### Automated Deployment (No Manual Steps Required!)
 
-# Deploy the IAM role
-python update-deployment-role.py \
-  --region us-east-1 \
-  --central-role-arn arn:aws:iam::123456789012:role/CentralOIDCRole
-
-# Or with AWS CLI profile
-python update-deployment-role.py \
-  --region us-east-1 \
-  --central-role-arn arn:aws:iam::123456789012:role/CentralOIDCRole \
-  --profile your-profile
-
-# Dry run (validate only, no deployment)
-python update-deployment-role.py \
-  --region us-east-1 \
-  --central-role-arn arn:aws:iam::123456789012:role/CentralOIDCRole \
-  --dry-run
-```
-
-**After successful deployment:**
-
-1. The script will display the deployment role ARN
-2. Add the role ARN to GitHub secrets as `AWS_DEPLOY_ROLE_ARN`
-3. Ensure `AWS_OIDC_ROLE_ARN` and `AWS_REGION` secrets are also configured
-
-### Step 2: Deploy Infrastructure (Automatic)
-
-Once the IAM role is created and secrets are configured, infrastructure deployments happen automatically via GitHub Actions.
+Once secrets are configured, **everything happens automatically** via GitHub Actions:
 
 **Automatic deployment triggers:**
-- Push to `main` branch when `infrastructure/template.yml` changes
+- Push to `main` branch when `infrastructure/deployment-role.yml` OR `infrastructure/template.yml` changes
 - Manual trigger via GitHub Actions UI (workflow_dispatch)
 
-**The workflow will:**
-1. Authenticate with central OIDC role using GitHub OIDC token
-2. Assume the deployment role using role chaining
-3. Validate the CloudFormation template
-4. Deploy or update the S3 bucket infrastructure
-5. Display stack outputs (bucket name, ARN, region)
+**The workflow automatically:**
 
-## Manual Deployment
+**Stage 1: Deploy Deployment Role** (if `deployment-role.yml` changed)
+1. Checks which files changed
+2. If `deployment-role.yml` changed:
+   - Assumes `github-actions-oidc-entry-role`
+   - Then assumes `github-actions-create-deployment-role`
+   - Deploys CloudFormation stack to create `github-actions-{owner}-{repo}` role
+   - Outputs the role ARN
 
-### Deploy IAM Role Manually (Alternative to Script)
+**Stage 2: Deploy Infrastructure** (if `template.yml` changed)
+1. Assumes `github-actions-oidc-entry-role`
+2. Constructs deployment role ARN: `arn:aws:iam::{account-id}:role/github-actions-{owner}-{repo}`
+3. Assumes the repository-specific deployment role
+4. Validates and deploys the S3 bucket infrastructure
+5. Displays stack outputs (bucket name, ARN, region)
+
+**Result**: Both the deployment role and infrastructure are created/updated automatically without any manual intervention!
+
+## Manual Deployment (Advanced/Optional)
+
+> **Note**: Manual deployment is optional. The GitHub Actions workflow handles everything automatically. Use manual deployment only for testing or troubleshooting.
+
+### Deploy IAM Role Manually with AWS CLI
 
 ```bash
 aws cloudformation deploy \
@@ -119,7 +104,7 @@ aws cloudformation deploy \
   --parameter-overrides \
     GitHubOrg=thekhoo \
     GitHubRepo=speedsnake \
-    CentralOIDCRoleArn=arn:aws:iam::123456789012:role/CentralOIDCRole \
+    CreateDeploymentRoleArn=arn:aws:iam::123456789012:role/github-actions-create-deployment-role \
   --capabilities CAPABILITY_NAMED_IAM \
   --region us-east-1
 
@@ -128,6 +113,8 @@ aws cloudformation describe-stacks \
   --stack-name speedsnake-deployment-role \
   --query 'Stacks[0].Outputs[?OutputKey==`RoleArn`].OutputValue' \
   --output text
+
+# Result: arn:aws:iam::123456789012:role/github-actions-thekhoo-speedsnake
 ```
 
 ### Deploy Infrastructure Manually (For Testing)
@@ -154,9 +141,9 @@ aws cloudformation describe-stacks \
 
 ## IAM Deployment Role Details
 
-**Role Name:** `GithubActions-PR-thekhoo-speedsnake-deploy`
+**Role Name:** `github-actions-{owner}-{repo}` (e.g., `github-actions-thekhoo-speedsnake`)
 
-**Trust Policy:** Allows assumption by the central OIDC role
+**Trust Policy:** Allows assumption by `github-actions-create-deployment-role`
 
 **Permissions:**
 - CloudFormation: Full access to stacks with `speedsnake-*` prefix
@@ -164,9 +151,11 @@ aws cloudformation describe-stacks \
 - S3: List all buckets (for validation)
 
 **Tags:**
-- `allow-github-actions-access=true` (required for central role to assume)
 - `Project=speedsnake`
 - `ManagedBy=CloudFormation`
+- `Repository={owner}/{repo}`
+
+**Created By:** GitHub Actions workflow automatically when `deployment-role.yml` is pushed to `main`
 
 ## Infrastructure Resources
 
@@ -272,9 +261,13 @@ aws cloudformation wait stack-delete-complete \
 ### Infrastructure Deployment Issues
 
 **Error: "User is not authorized to assume role"**
-- Solution: Verify the deployment role ARN in GitHub secrets matches the created role
-- Verify the central OIDC role has permission to assume roles with prefix `GithubActions-PR-thekhoo-*`
-- Verify the deployment role has tag `allow-github-actions-access=true`
+- Solution: Verify GitHub secrets are configured correctly:
+  - `AWS_OIDC_ENTRY_ROLE_ARN` - Entry point role ARN
+  - `AWS_CREATE_DEPLOYMENT_ROLE_ARN` - Create deployment role ARN
+  - `AWS_REGION` - Target AWS region
+- Verify the OIDC entry role can assume the create deployment role
+- Verify the create deployment role can create IAM roles
+- Verify the deployment role exists (it's created automatically on first run)
 
 **Error: "Bucket already exists"**
 - Solution: S3 bucket names are globally unique. The template uses account ID suffix to avoid conflicts
@@ -288,47 +281,75 @@ aws cloudformation wait stack-delete-complete \
 
 **Error: "Could not assume role"**
 - Solution: Verify all three GitHub secrets are configured correctly:
-  - `AWS_OIDC_ROLE_ARN` - Central OIDC role ARN
-  - `AWS_DEPLOY_ROLE_ARN` - Deployment role ARN
+  - `AWS_OIDC_ENTRY_ROLE_ARN` - OIDC entry role ARN
+  - `AWS_CREATE_DEPLOYMENT_ROLE_ARN` - Create deployment role ARN
   - `AWS_REGION` - Target region
-- Verify the central OIDC role trust policy allows GitHub OIDC federation
+- Verify the OIDC entry role trust policy allows GitHub OIDC federation
+- Check the CloudFormation stack events for detailed error messages
 
 **Workflow doesn't trigger**
-- Solution: Ensure changes to `infrastructure/template.yml` are pushed to `main` branch
+- Solution: Ensure changes to `infrastructure/deployment-role.yml` or `infrastructure/template.yml` are pushed to `main` branch
 - Check workflow file path: `.github/workflows/deploy-infrastructure.yml`
 - Manually trigger via GitHub Actions UI (workflow_dispatch)
+- Review the workflow paths filter in the workflow file
 
 ## Security Best Practices
 
 1. **Least Privilege**: The deployment role only has permissions for `speedsnake-*` stacks and `speedsnake*` buckets
-2. **Role Chaining**: Uses two-stage authentication (OIDC → Deployment role) for better security
+2. **Multi-Stage Role Chaining**: Uses three-stage authentication (OIDC Entry → Create Deployment → Repository Deployment) for enhanced security
 3. **OIDC Authentication**: No long-lived AWS credentials stored in GitHub
-4. **Tag-Based Access Control**: Central OIDC role checks for `allow-github-actions-access` tag before assuming
-5. **Encrypted Storage**: S3 bucket uses server-side encryption (AES256)
-6. **Block Public Access**: All public access is blocked on the S3 bucket
-7. **Versioning**: S3 versioning enabled for data protection
+4. **Dynamic Role ARN Construction**: Deployment role ARN is constructed at runtime from repository owner and name
+5. **Automated Role Creation**: Deployment roles are created by a universal `create-deployment-role`, ensuring consistent permissions
+6. **Encrypted Storage**: S3 bucket uses server-side encryption (AES256)
+7. **Block Public Access**: All public access is blocked on the S3 bucket
+8. **Versioning**: S3 versioning enabled for data protection
 
 ## Architecture Diagram
 
+### Stage 1: Deploy Deployment Role (if deployment-role.yml changed)
+
 ```
 ┌─────────────────────────────────────────────────────────┐
-│           GitHub Actions Workflow                       │
+│      GitHub Actions: Deploy Deployment Role             │
 │                                                          │
-│  Step 1: Authenticate with AWS OIDC                     │
-│  ├─> Use OIDC token                                     │
-│  └─> Assume: Central OIDC Role                          │
-│      (AWS_OIDC_ROLE_ARN)                                │
+│  Step 1: Authenticate with OIDC                         │
+│  ├─> Use OIDC token from GitHub                         │
+│  └─> Assume: github-actions-oidc-entry-role             │
+│      (AWS_OIDC_ENTRY_ROLE_ARN)                          │
 │                                                          │
-│  Step 2: Assume deployment role                         │
-│  ├─> Use credentials from Step 1                        │
-│  ├─> Check: Role prefix = GithubActions-PR-thekhoo-*    │
-│  ├─> Check: Tag allow-github-actions-access = true      │
-│  └─> Assume: speedsnake-deploy role                     │
-│      (AWS_DEPLOY_ROLE_ARN)                              │
+│  Step 2: Assume create deployment role                  │
+│  ├─> Use credentials from Step 1 (role chaining)        │
+│  └─> Assume: github-actions-create-deployment-role      │
+│      (AWS_CREATE_DEPLOYMENT_ROLE_ARN)                   │
 │                                                          │
-│  Step 3: Deploy CloudFormation                          │
+│  Step 3: Deploy deployment role CloudFormation          │
 │  ├─> Use credentials from Step 2                        │
-│  └─> Create/Update: S3 bucket                           │
+│  ├─> Deploy: deployment-role.yml                        │
+│  └─> Creates: github-actions-{owner}-{repo}             │
+└─────────────────────────────────────────────────────────┘
+```
+
+### Stage 2: Deploy Infrastructure (if template.yml changed)
+
+```
+┌─────────────────────────────────────────────────────────┐
+│      GitHub Actions: Deploy Infrastructure              │
+│                                                          │
+│  Step 1: Authenticate with OIDC                         │
+│  ├─> Use OIDC token from GitHub                         │
+│  └─> Assume: github-actions-oidc-entry-role             │
+│      (AWS_OIDC_ENTRY_ROLE_ARN)                          │
+│                                                          │
+│  Step 2: Assume repository deployment role              │
+│  ├─> Use credentials from Step 1 (role chaining)        │
+│  ├─> Construct ARN dynamically from repo owner/name     │
+│  └─> Assume: github-actions-{owner}-{repo}              │
+│      (e.g., github-actions-thekhoo-speedsnake)          │
+│                                                          │
+│  Step 3: Deploy infrastructure CloudFormation           │
+│  ├─> Use credentials from Step 2                        │
+│  ├─> Deploy: template.yml                               │
+│  └─> Creates: S3 bucket                                 │
 └─────────────────────────────────────────────────────────┘
 ```
 
