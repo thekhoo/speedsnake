@@ -19,14 +19,18 @@ inputs:
 runs:
   using: 'composite'
   steps:
-    - name: Set up Python
-      uses: actions/setup-python@v5
+    - name: Install uv
+      uses: astral-sh/setup-uv@v5
       with:
-        python-version: '3.13'
+        enable-cache: true
 
-    - name: Install cfn-lint
+    - name: Set up Python
       shell: bash
-      run: pip install cfn-lint
+      run: uv python install 3.13
+
+    - name: Install dependencies
+      shell: bash
+      run: uv sync --group development
 
     - name: Static validation with cfn-lint
       shell: bash
