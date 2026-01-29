@@ -161,7 +161,7 @@ uv run ruff check speedtest/ tests/
 uv run ruff format speedtest/ tests/
 
 # Type checking
-uv run pyrefly check
+uv run pyrefly check speedtest/ tests/
 ```
 
 ### Docker Development
@@ -184,6 +184,181 @@ uv run pytest                          # Run all tests
 uv run pytest tests/test_speedtest.py  # Run specific file
 uv run pytest -k "test_name"           # Run tests matching pattern
 ```
+
+## CI/CD Pipeline
+
+The project uses GitHub Actions for automated deployment to AWS and Docker Hub. The pipeline consists of three main components: infrastructure deployment, testing, and Docker image publishing.
+
+### Architecture Overview
+
+```
+GitHub Actions Workflow
+├── Lint & Test (Python 3.13, 3.14) - Using reusable composite action
+├── Deploy Infrastructure (per universe)
+│   ├── Deploy Deployment Role (IAM)
+│   └── Deploy Infrastructure (S3)
+└── Build & Push Docker Image
+```
+
+### Reusable Actions
+
+The project uses composite actions to maintain consistency and reduce duplication:
+
+**`python-quality-check`** (`.github/actions/python-quality-check/`)
+- Handles all Python quality gate operations
+- Inputs: `python-version` (e.g., "3.13"), `check-type` ("lint" or "test")
+- Features:
+  - uv installation with automatic caching
+  - Python version setup
+  - Dependency installation
+  - Lint checks: ruff check, ruff format, pyrefly type checking
+  - Test execution: pytest with verbose output
+- Used by both `ci.yml` and `deploy-infrastructure.yml` workflows
+
+**`deploy-cloudformation`** (`.github/actions/deploy-cloudformation/`)
+- Handles AWS CloudFormation stack deployments
+- Features AWS credential configuration via OIDC
+- Validates templates before deployment
+- Provides deployment summaries with stack outputs
+
+### AWS Infrastructure
+
+The infrastructure is managed using CloudFormation templates in the `infrastructure/` directory:
+
+**1. Deployment Role** (`deployment-role.yml`)
+- Creates an IAM role that GitHub Actions assumes to deploy infrastructure
+- Grants permissions for CloudFormation stack management and S3 bucket operations
+- Role ARN: `arn:aws:iam::020844256789:role/github-actions-<owner>-<repo>-deployment`
+
+**2. Infrastructure Stack** (`template.yml`)
+- Deploys an S3 bucket for storing speedtest results
+- Bucket naming: `speedsnake-<universe>` (e.g., `speedsnake-production`)
+- Features:
+  - AES256 encryption at rest
+  - Public access blocked
+  - HTTPS-only connections enforced
+  - 90-day lifecycle policy for `results/` prefix
+  - Retention policy enabled (bucket not deleted on stack deletion)
+
+### Universe Support
+
+The pipeline supports multiple deployment environments (universes) using matrix strategy:
+
+- **Current**: `production` only
+- **Expandable**: Add `development` or `staging` to the matrix in `.github/workflows/deploy-infrastructure.yml`
+
+Each universe gets:
+- Separate CloudFormation stacks: `speedsnake-deployment-role-<universe>`, `speedsnake-infrastructure-<universe>`
+- Separate S3 buckets: `speedsnake-<universe>`
+- Universe-tagged Docker images: `latest-production`, `v1.2.3-production`
+
+### Workflow Files
+
+- **`ci.yml`**: Runs on pull requests to validate code quality
+- **`deploy-infrastructure.yml`**: Runs on push to main, tags, or manual dispatch for deployment
+
+### Workflow Triggers
+
+The pipeline runs automatically on:
+
+| Workflow                  | Trigger                              | Lint/Test | Infrastructure | Docker Build |
+| ------------------------- | ------------------------------------ | --------- | -------------- | ------------ |
+| `ci.yml`                  | Pull request to `main`               | ✓         | ✗              | ✗            |
+| `deploy-infrastructure.yml` | Push to `main` (infra files changed) | ✓         | ✓              | ✓            |
+| `deploy-infrastructure.yml` | Push to `main` (other files)         | ✗         | ✗              | ✗            |
+| `deploy-infrastructure.yml` | Tag push (`v*.*.*`)                  | ✓         | ✗              | ✓            |
+| `deploy-infrastructure.yml` | Manual workflow dispatch             | ✓         | ✓              | ✓            |
+
+**Path filters** (deploy-infrastructure.yml): Infrastructure deployment only runs when these files change:
+- `infrastructure/deployment-role.yml`
+- `infrastructure/template.yml`
+- `.github/workflows/deploy-infrastructure.yml`
+
+**Important**: Code changes that don't touch infrastructure files won't trigger any deployment workflow on push to main. Use tags or manual dispatch for releases without infrastructure changes.
+
+### Pipeline Stages
+
+**1. Quality Gates (Parallel)**
+- **Lint** (Python 3.13):
+  - ruff check - Linting rules (E, F, I, W)
+  - ruff format - Code formatting validation
+  - pyrefly - Type checking
+- **Test** (Python 3.13 & 3.14):
+  - pytest - Unit and integration tests with verbose output
+  - Matrix strategy runs tests against multiple Python versions
+- **Caching**: uv binary, Python interpreters, and dependencies are cached for faster runs (70-90% speed improvement)
+
+**2. Infrastructure Deployment (Sequential, per universe)**
+- **Deploy Deployment Role**: Only runs when `deployment-role.yml` changes
+- **Deploy Infrastructure**: Only runs when `template.yml` or workflow changes
+- **Universe Matrix**: Currently deploys to `production` only, easily expandable to `development`, `staging`
+- Requires: All quality gates passing
+
+**3. Docker Build (After infrastructure)**
+- Builds production Docker image (multi-stage, non-root user)
+- Multi-platform: `linux/amd64` and `linux/arm64`
+- Pushes to Docker Hub: `thekhoo/speedsnake`
+- Universe-aware tagging (e.g., `latest-production`, `v1.2.3-production`)
+- Requires: Quality gates passing, infrastructure deployed/skipped
+
+### Docker Image Tags
+
+Images are tagged based on the trigger type and universe:
+
+| Git Event                  | Docker Tags                                                                     |
+| -------------------------- | ------------------------------------------------------------------------------- |
+| Push to `main`             | `latest-production`, `main-abc123-production` (git sha)                         |
+| Tag `v1.2.3`               | `1.2.3-production`, `1.2-production`, `1-production`, `main-abc123-production` |
+| Manual dispatch from `main` | `latest-production`, `main-abc123-production`                                   |
+
+### Required GitHub Secrets
+
+Configure these in your repository settings:
+
+- `DOCKERHUB_USERNAME`: Docker Hub username
+- `DOCKERHUB_TOKEN`: Docker Hub access token (not password)
+
+**AWS credentials** are handled via OIDC role assumption (no long-lived credentials required).
+
+### AWS Permissions
+
+The deployment role has permissions to:
+- Manage CloudFormation stacks with names matching `speedsnake-*`
+- Create and manage S3 buckets with names matching `speedsnake*`
+- No permissions for EC2, Lambda, or other services (principle of least privilege)
+
+### Manual Deployment
+
+To manually trigger a deployment:
+
+1. Go to Actions tab in GitHub
+2. Select "Deploy Infrastructure" workflow
+3. Click "Run workflow"
+4. Select branch (usually `main`)
+5. Click "Run workflow"
+
+This will deploy infrastructure for all universes in the matrix and build Docker images.
+
+### Expanding to Multiple Universes
+
+To add a new universe (e.g., `development`):
+
+1. Update the matrix in `.github/workflows/deploy-infrastructure.yml` (appears twice - once for `deploy-deployment-role`, once for `deploy-infrastructure`):
+   ```yaml
+   strategy:
+     matrix:
+       universe: [production, development]
+   ```
+
+2. Push to `main` or manually trigger the workflow
+
+3. The pipeline will automatically:
+   - Deploy `speedsnake-deployment-role-development`
+   - Deploy `speedsnake-infrastructure-development`
+   - Create S3 bucket `speedsnake-development`
+   - Tag Docker images with `-development` suffix
+
+**Note**: Quality checks (lint/test) run once per workflow execution, not per universe, since they validate code quality, not environment-specific configurations.
 
 ## Docker Deployment
 
@@ -229,8 +404,16 @@ Production uses named Docker volumes:
 1. Create a new branch for your changes
 2. Make incremental commits (one per logical change)
 3. Use conventional commits format
-4. Run tests and linting before committing
+4. Run all quality checks before committing:
+   ```bash
+   uv run ruff check speedtest/ tests/
+   uv run ruff format speedtest/ tests/
+   uv run pyrefly check speedtest/ tests/
+   uv run pytest -v
+   ```
 5. Submit a pull request
+
+Pull requests automatically run the full CI pipeline including linting, type checking, and tests across Python 3.13 and 3.14.
 
 ## License
 

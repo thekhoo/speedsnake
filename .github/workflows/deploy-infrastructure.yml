@@ -1,0 +1,221 @@
+name: Deploy Infrastructure
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - "infrastructure/deployment-role.yml"
+      - "infrastructure/template.yml"
+      - ".github/workflows/deploy-infrastructure.yml"
+    tags:
+      - "v*.*.*"
+  workflow_dispatch:
+
+permissions:
+  id-token: write
+  contents: read
+
+env:
+  AWS_REGION: eu-west-2
+  SERVICE_NAME: ${{ github.repository }}
+  DEPLOYMENT_IAM_ROLE_NAME: github-actions-${{ github.repository_owner }}-${{ github.repository }}-deployment
+  DEPLOYMENT_ROLE_STACK_NAME: speedsnake-deployment-role
+  INFRASTRUCTURE_STACK_NAME: speedsnake-infrastructure
+  REGISTRY_IMAGE: thekhoo/speedsnake
+
+jobs:
+  lint:
+    name: Lint
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Run Python quality checks
+        uses: ./.github/actions/python-quality-check
+        with:
+          python-version: '3.13'
+          check-type: lint
+
+  test:
+    name: Test
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        python-version: ["3.13", "3.14"]
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Run Python quality checks
+        uses: ./.github/actions/python-quality-check
+        with:
+          python-version: ${{ matrix.python-version }}
+          check-type: test
+
+  check-changes:
+    name: Check for Changes
+    runs-on: ubuntu-latest
+    outputs:
+      deployment_role_changed: ${{ steps.changes.outputs.deployment_role }}
+      infrastructure_changed: ${{ steps.changes.outputs.infrastructure }}
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 2
+
+      - name: Check which files changed
+        id: changes
+        run: |
+          # For workflow_dispatch, assume both need deployment
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            echo "deployment_role=true" >> $GITHUB_OUTPUT
+            echo "infrastructure=true" >> $GITHUB_OUTPUT
+            exit 0
+          fi
+
+          # For tag pushes, skip infrastructure deployment
+          if [[ "${{ github.ref }}" == refs/tags/* ]]; then
+            echo "deployment_role=false" >> $GITHUB_OUTPUT
+            echo "infrastructure=false" >> $GITHUB_OUTPUT
+            echo "Tag push detected - skipping infrastructure deployment"
+            exit 0
+          fi
+
+          # Check if deployment-role.yml changed
+          if git diff --name-only HEAD^ HEAD | grep -q "infrastructure/deployment-role.yml"; then
+            echo "deployment_role=true" >> $GITHUB_OUTPUT
+            echo "Deployment role changed"
+          else
+            echo "deployment_role=false" >> $GITHUB_OUTPUT
+            echo "Deployment role not changed"
+          fi
+
+          # Check if template.yml or workflow changed
+          if git diff --name-only HEAD^ HEAD | grep -qE "infrastructure/template.yml|.github/workflows/deploy-infrastructure.yml"; then
+            echo "infrastructure=true" >> $GITHUB_OUTPUT
+            echo "Infrastructure changed"
+          else
+            echo "infrastructure=false" >> $GITHUB_OUTPUT
+            echo "Infrastructure not changed"
+          fi
+
+  deploy-deployment-role:
+    name: Deploy Deployment Role (${{ matrix.universe }})
+    runs-on: ubuntu-latest
+    needs: [lint, test, check-changes]
+    if: |
+      needs.check-changes.outputs.deployment_role_changed == 'true' &&
+      needs.lint.result == 'success' &&
+      needs.test.result == 'success'
+    strategy:
+      matrix:
+        universe: [production]
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Deploy deployment role CloudFormation stack
+        uses: ./.github/actions/deploy-cloudformation
+        with:
+          deployment_role_arn: arn:aws:iam::020844256789:role/github-actions-create-deployment-role
+          stack_name: ${{ env.DEPLOYMENT_ROLE_STACK_NAME }}-${{ matrix.universe }}
+          template_file: infrastructure/deployment-role.yml
+          parameters: Universe=${{ matrix.universe }} ServiceName=${{ env.SERVICE_NAME }} DeploymentRoleName=${{ env.DEPLOYMENT_IAM_ROLE_NAME}}
+          summary_title: Deployment Role Created (${{ matrix.universe }})
+
+  deploy-infrastructure:
+    name: Deploy Infrastructure (${{ matrix.universe }})
+    runs-on: ubuntu-latest
+    needs: [lint, test, check-changes, deploy-deployment-role]
+    if: |
+      always() &&
+      needs.check-changes.outputs.infrastructure_changed == 'true' &&
+      needs.lint.result == 'success' &&
+      needs.test.result == 'success' &&
+      (needs.deploy-deployment-role.result == 'success' || needs.deploy-deployment-role.result == 'skipped')
+    strategy:
+      matrix:
+        universe: [production]
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Deploy infrastructure CloudFormation stack
+        uses: ./.github/actions/deploy-cloudformation
+        with:
+          deployment_role_arn: arn:aws:iam::020844256789:role/${{ env.DEPLOYMENT_IAM_ROLE_NAME}}
+          stack_name: ${{ env.INFRASTRUCTURE_STACK_NAME }}-${{ matrix.universe }}
+          template_file: infrastructure/template.yml
+          parameters: Universe=${{ matrix.universe }} ServiceName=${{ env.SERVICE_NAME }}
+          summary_title: Infrastructure Deployment Summary (${{ matrix.universe }})
+
+  docker-build-and-push:
+    name: Build and Push Docker Image
+    runs-on: ubuntu-latest
+    needs: [lint, test, deploy-infrastructure]
+    if: |
+      always() &&
+      needs.lint.result == 'success' &&
+      needs.test.result == 'success' &&
+      (needs.deploy-infrastructure.result == 'success' || needs.deploy-infrastructure.result == 'skipped')
+    permissions:
+      contents: read
+      packages: write
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Log in to Docker Hub
+        uses: docker/login-action@v3
+        with:
+          username: ${{ secrets.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
+
+      - name: Extract metadata (tags, labels)
+        id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: ${{ env.REGISTRY_IMAGE }}
+          tags: |
+            # Tag as 'latest-production' for main branch
+            type=raw,value=latest-production,enable={{is_default_branch}}
+            # Tag with version-production for semver tags (v1.2.3-production)
+            type=semver,pattern={{version}}-production
+            # Tag with major.minor-production for semver tags (v1.2-production)
+            type=semver,pattern={{major}}.{{minor}}-production
+            # Tag with major-production for semver tags (v1-production)
+            type=semver,pattern={{major}}-production
+            # Tag with git sha for traceability (main-abc123-production)
+            type=sha,prefix={{branch}}-,suffix=-production
+
+      - name: Build and push Docker image
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          file: ./docker/production/Dockerfile
+          push: true
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+          platforms: linux/amd64,linux/arm64
+
+      - name: Docker Hub Description
+        uses: peter-evans/dockerhub-description@v4
+        continue-on-error: true
+        with:
+          username: ${{ secrets.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
+          repository: ${{ env.REGISTRY_IMAGE }}
+          readme-filepath: ./README.md
+          short-description: "SpeedSnake - Automated speedtest monitoring with Parquet storage"

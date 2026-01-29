@@ -1,0 +1,134 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: 'IAM deployment role for SpeedSnake infrastructure - allows GitHub Actions to deploy CloudFormation stacks'
+
+Parameters:
+  ServiceName:
+    Description: The name of this service
+    Type: String
+    AllowedPattern: '^[a-z0-9][a-z0-9-]*[a-z0-9]$'
+    MinLength: 3
+    MaxLength: 50
+    ConstraintDescription: Must be lowercase alphanumeric with hyphens, 3-50 characters
+
+  Universe:
+    Description: The universe we live in
+    Type: String
+    AllowedValues:
+      - production
+      - staging
+      - development
+
+  DeploymentRoleName:
+    Description: The name of the deployment IAM role
+    Type: String
+    AllowedPattern: '^[a-zA-Z0-9-_+=,.@]{1,64}$'
+    MinLength: 1
+    MaxLength: 64
+    ConstraintDescription: Must be 1-64 characters of alphanumeric and special characters - _+=,.@
+
+Mappings:
+  global:
+    Configuration:
+      GithubOIDCRoleArn: arn:aws:iam::020844256789:role/github-actions-oidc-entry-role
+
+Resources:
+  DeploymentRole:
+    Type: AWS::IAM::Role
+    Properties:
+      RoleName: !Ref DeploymentRoleName
+      Description: !Sub 'Deployment role for ${ServiceName} in ${Universe} environment'
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal:
+              AWS: !FindInMap [global, Configuration, GithubOIDCRoleArn]
+            Action: 
+              - sts:AssumeRole
+              - sts:TagSession
+      Tags:
+        - Key: service-name
+          Value: !Ref ServiceName
+        - Key: application 
+          Value: !Ref ServiceName
+        - Key: ManagedBy
+          Value: CloudFormation
+      ManagedPolicyArns: []
+      Policies:
+        - PolicyName: CloudFormationDeployment
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              - Sid: CloudFormationStackManagement
+                Effect: Allow
+                Action:
+                  - cloudformation:CreateStack
+                  - cloudformation:UpdateStack
+                  - cloudformation:DeleteStack
+                  - cloudformation:DescribeStacks
+                  - cloudformation:DescribeStackEvents
+                  - cloudformation:DescribeStackResources
+                  - cloudformation:GetTemplate
+                  - cloudformation:GetTemplateSummary
+                  - cloudformation:ListStacks
+                  - cloudformation:ListStackResources
+                  - cloudformation:ValidateTemplate
+                  - cloudformation:CreateChangeSet
+                  - cloudformation:DescribeChangeSet
+                  - cloudformation:ExecuteChangeSet
+                  - cloudformation:DeleteChangeSet
+                  - cloudformation:ListChangeSets
+                Resource:
+                  - !Sub 'arn:aws:cloudformation:*:${AWS::AccountId}:stack/speedsnake-*/*'
+
+              - Sid: CloudFormationListOperation
+                Effect: Allow
+                Action:
+                  - cloudformation:ListStacks
+                  - cloudformation:ValidateTemplate
+                Resource: '*'
+
+        - PolicyName: S3BucketManagement
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              - Sid: S3BucketOperations
+                Effect: Allow
+                Action:
+                  - s3:CreateBucket
+                  - s3:DeleteBucket
+                  - s3:PutBucketVersioning
+                  - s3:GetBucketVersioning
+                  - s3:PutBucketPublicAccessBlock
+                  - s3:GetBucketPublicAccessBlock
+                  - s3:PutEncryptionConfiguration
+                  - s3:GetEncryptionConfiguration
+                  - s3:PutBucketTagging
+                  - s3:GetBucketTagging
+                  - s3:GetBucketLocation
+                  - s3:ListBucket
+                  - s3:PutBucketPolicy
+                  - s3:GetBucketPolicy
+                  - s3:DeleteBucketPolicy
+                Resource:
+                  - arn:aws:s3:::speedsnake*
+
+              - Sid: S3ListAllBuckets
+                Effect: Allow
+                Action:
+                  - s3:ListAllMyBuckets
+                  - s3:GetBucketLocation
+                Resource: '*'
+
+Outputs:
+  RoleArn:
+    Description: ARN of the deployment role
+    Value: !GetAtt DeploymentRole.Arn
+    Export:
+      Name: !Sub '${AWS::StackName}-RoleArn'
+
+  RoleName:
+    Description: Name of the deployment role
+    Value: !Ref DeploymentRole
+    Export:
+      Name: !Sub '${AWS::StackName}-RoleName'

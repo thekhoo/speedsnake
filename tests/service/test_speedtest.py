@@ -4,45 +4,20 @@ from unittest.mock import MagicMock, patch
 import pytest
 
 from speedtest.service import speedtest
-from speedtest.service.speedtest import round_floats_to_ints
+from speedtest.service.speedtest import SpeedtestResponse, round_floats_to_ints
+from tests.conftest import make_speedtest_response
 
 
 @pytest.fixture
-def sample_speedtest_response():
-    return {
-        "download": 125000000,
-        "upload": 25000000,
-        "ping": 15,
-        "server": {
-            "url": "http://speedtest.example.com",
-            "lat": "1.3521",
-            "lon": "103.8198",
-            "name": "Singapore",
-            "country": "Singapore",
-            "cc": "SG",
-            "sponsor": "Test ISP",
-            "id": "12345",
-            "host": "speedtest.example.com:8080",
-            "d": 10.5,
-            "latency": 5,
-        },
-        "timestamp": "2025-01-15T10:30:00.000000Z",
-        "bytes_sent": 32000000,
-        "bytes_received": 156000000,
-        "share": None,
-        "client": {
-            "ip": "192.168.1.1",
-            "lat": "1.3521",
-            "lon": "103.8198",
-            "isp": "Test ISP",
-            "isprating": "3.5",
-            "rating": "0",
-            "ispdlavg": "0",
-            "ispulavg": "0",
-            "loggedin": "0",
-            "country": "SG",
-        },
-    }
+def sample_speedtest_response() -> SpeedtestResponse:
+    return make_speedtest_response(
+        download=125000000,
+        upload=25000000,
+        ping=15,
+        timestamp="2025-01-15T10:30:00.000000Z",
+        bytes_sent=32000000,
+        bytes_received=156000000,
+    )
 
 
 class TestRun:
@@ -104,12 +79,12 @@ class TestGetDateStrFromResult:
         assert date_str == "2025-01-15"
 
     def test_handles_different_date_formats(self):
-        result = {"timestamp": "2024-12-31T23:59:59.999999Z"}
+        result = make_speedtest_response(timestamp="2024-12-31T23:59:59.999999Z")
         date_str = speedtest.get_date_str_from_result(result)
         assert date_str == "2024-12-31"
 
     def test_handles_timestamp_without_timezone(self):
-        result = {"timestamp": "2025-06-15T08:00:00"}
+        result = make_speedtest_response(timestamp="2025-06-15T08:00:00")
         date_str = speedtest.get_date_str_from_result(result)
         assert date_str == "2025-06-15"
 

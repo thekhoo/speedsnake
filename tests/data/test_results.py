@@ -1,6 +1,7 @@
 import csv
 
 from speedtest.data import results
+from tests.conftest import make_speedtest_response
 
 
 class TestFlattenDict:
@@ -75,17 +76,14 @@ class TestGetCsvFilename:
 class TestWriteCsv:
     def test_creates_csv_file(self, tmp_path):
         filepath = tmp_path / "test.csv"
-        sample_result = {
-            "download": 125000000,
-            "upload": 25000000,
-            "ping": 15,
-            "timestamp": "2025-01-15T10:30:00.000000Z",
-            "bytes_sent": 0,
-            "bytes_received": 0,
-            "share": None,
-            "server": {"name": "Test Server", "country": "US"},
-            "client": {"ip": "192.168.1.1", "isp": "Test ISP"},
-        }
+        sample_result = make_speedtest_response(
+            download=125000000,
+            upload=25000000,
+            ping=15,
+            timestamp="2025-01-15T10:30:00.000000Z",
+            bytes_sent=0,
+            bytes_received=0,
+        )
 
         results.write_csv(filepath, sample_result)
 
@@ -93,11 +91,10 @@ class TestWriteCsv:
 
     def test_csv_has_header(self, tmp_path):
         filepath = tmp_path / "test.csv"
-        sample_result = {
-            "download": 100,
-            "upload": 50,
-            "server": {"name": "Server"},
-        }
+        sample_result = make_speedtest_response(
+            download=100,
+            upload=50,
+        )
 
         results.write_csv(filepath, sample_result)
 
@@ -110,10 +107,10 @@ class TestWriteCsv:
 
     def test_csv_has_data_row(self, tmp_path):
         filepath = tmp_path / "test.csv"
-        sample_result = {
-            "download": 100,
-            "upload": 50,
-        }
+        sample_result = make_speedtest_response(
+            download=100,
+            upload=50,
+        )
 
         results.write_csv(filepath, sample_result)
 
@@ -125,7 +122,7 @@ class TestWriteCsv:
 
     def test_creates_parent_directories(self, tmp_path):
         filepath = tmp_path / "nested" / "path" / "test.csv"
-        sample_result = {"key": "value"}
+        sample_result = make_speedtest_response()
 
         results.write_csv(filepath, sample_result)
 
@@ -134,10 +131,7 @@ class TestWriteCsv:
 
     def test_flattens_nested_fields(self, tmp_path):
         filepath = tmp_path / "test.csv"
-        sample_result = {
-            "top": "level",
-            "server": {"name": "Test", "country": "US"},
-        }
+        sample_result = make_speedtest_response()
 
         results.write_csv(filepath, sample_result)
 
@@ -146,5 +140,5 @@ class TestWriteCsv:
             row = next(reader)
             assert "server_name" in row
             assert "server_country" in row
-            assert row["server_name"] == "Test"
+            assert row["server_name"] == "Test Server"
             assert row["server_country"] == "US"
