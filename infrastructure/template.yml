@@ -1,61 +1,86 @@
 AWSTemplateFormatVersion: '2010-09-09'
+Transform: AWS::Serverless-2016-10-31
 Description: 'SpeedSnake Infrastructure - S3 bucket for storing speedtest results'
 
 Parameters:
-  BucketName:
+  ServiceName:
+    Description: The name of this service
     Type: String
-    Default: speedsnake
-    Description: Base name for the S3 bucket (will be suffixed with account ID for uniqueness)
     AllowedPattern: '^[a-z0-9][a-z0-9-]*[a-z0-9]$'
     MinLength: 3
     MaxLength: 50
     ConstraintDescription: Must be lowercase alphanumeric with hyphens, 3-50 characters
 
-  Environment:
+  Universe:
+    Description: The universe we live in
     Type: String
-    Default: production
-    Description: Deployment environment
     AllowedValues:
       - production
       - staging
       - development
 
 Resources:
-  SpeedtestResultsBucket:
+  ServiceBucket:
     Type: AWS::S3::Bucket
     Properties:
-      BucketName: !Sub '${BucketName}-${AWS::AccountId}'
+      BucketName: !Sub '${ServiceName}-${Universe}'
+      DeletionPolicy: Retain
+      UpdateReplacePolicy: Retain
       VersioningConfiguration:
-        Status: Enabled
+        Status: Suspended
       BucketEncryption:
         ServerSideEncryptionConfiguration:
           - ServerSideEncryptionByDefault:
               SSEAlgorithm: AES256
+      AccessControl: Private
       PublicAccessBlockConfiguration:
         BlockPublicAcls: true
         BlockPublicPolicy: true
         IgnorePublicAcls: true
         RestrictPublicBuckets: true
+      LifecycleConfiguration:
+        Rules:
+          - Id: DeleteResultsMoreThan90Days
+            Status: Enabled
+            ExpirationInDays: 90
+            Prefix: results
       Tags:
-        - Key: Project
+        - Key: application
           Value: speedsnake
-        - Key: Environment
-          Value: !Ref Environment
+        - Key: service-name
+          Value: !Ref ServiceName
         - Key: ManagedBy
           Value: CloudFormation
-        - Key: Purpose
-          Value: speedtest-results-storage
+  
+  ServiceBucketPolicy:
+    Type: AWS::S3::BucketPolicy
+    Properties:
+      Bucket: !Ref ServiceBucket
+      PolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Sid: DenyUnencryptedConnections
+            Effect: Deny
+            Principal: "*"
+            Action:
+              - "s3:*"
+            Resource:
+              - !GetAtt ServiceBucket.Arn
+              - !Sub '${ServiceBucket.Arn}/*'
+            Condition:
+              Bool:
+                aws:SecureTransport: false
 
 Outputs:
   BucketName:
     Description: Name of the S3 bucket for speedtest results
-    Value: !Ref SpeedtestResultsBucket
+    Value: !Ref ServiceBucket
     Export:
       Name: !Sub '${AWS::StackName}-BucketName'
 
   BucketArn:
     Description: ARN of the S3 bucket
-    Value: !GetAtt SpeedtestResultsBucket.Arn
+    Value: !GetAtt ServiceBucket.Arn
     Export:
       Name: !Sub '${AWS::StackName}-BucketArn'
 
