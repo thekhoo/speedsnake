@@ -399,6 +399,44 @@ Production uses named Docker volumes:
 - **Type checking**: pyrefly
 - **Python version**: 3.13
 
+## GitHub Actions Naming Conventions
+
+All GitHub Actions (composite actions and workflows) follow standardized naming conventions:
+
+### Input Field Names
+- **Always use hyphens** instead of underscores for input field names
+- **Format**: `kebab-case` (lowercase with hyphens)
+- **Examples**:
+  - ✅ `template-paths`, `python-version`, `deployment-role-arn`
+  - ❌ `template_paths`, `python_version`, `deployment_role_arn`
+
+### Rationale
+- Consistent with GitHub Actions ecosystem conventions
+- Easier to read and distinguish from variable names
+- Follows YAML/Kubernetes naming patterns
+- Improves maintainability across workflows and composite actions
+
+### Composite Actions
+When creating new composite actions in `.github/actions/`:
+1. Define all inputs with hyphenated names
+2. Reference inputs using hyphenated syntax: `${{ inputs.my-input-name }}`
+3. Document input names clearly in the action's `description` field
+
+### Workflow Files
+When calling actions from workflows:
+1. Use hyphenated input names in the `with:` block
+2. Keep action invocations consistent across all workflow files
+
+**Example**:
+```yaml
+- name: Validate templates
+  uses: ./.github/actions/validate-cloudformation
+  with:
+    template-paths: infrastructure/deployment-role.yml
+    validation-role-arn: ${{ env.VALIDATION_ROLE_ARN }}
+    python-version: "3.13"
+```
+
 ## Contributing
 
 1. Create a new branch for your changes

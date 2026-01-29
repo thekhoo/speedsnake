@@ -67,7 +67,7 @@ jobs:
       - name: Validate templates
         uses: ./.github/actions/validate-cloudformation
         with:
-          template_paths: infrastructure/deployment-role.yml infrastructure/template.yml
-          validation_role_arn: ${{ env.VALIDATION_ROLE_ARN }}
-          python_version: "3.13"
-          aws_region: ${{ env.AWS_REGION }}
+          template-paths: infrastructure/deployment-role.yml infrastructure/template.yml
+          validation-role-arn: ${{ env.VALIDATION_ROLE_ARN }}
+          python-version: "3.13"
+          aws-region: ${{ env.AWS_REGION }}

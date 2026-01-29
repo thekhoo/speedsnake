@@ -3,25 +3,25 @@ description: 'Validates and deploys a CloudFormation template with optional para
 
 inputs:
   # required parameters
-  stack_name:
+  stack-name:
     description: 'CloudFormation stack name'
     required: true
 
-  template_file:
+  template-file:
     description: 'Path to CloudFormation template file'
     required: true
 
-  deployment_role_arn:
+  deployment-role-arn:
     description: 'ARN of the deployment role to assume for CloudFormation operations. If not provided, defaults to github-actions-{owner}-{repo} or uses DEPLOYMENT_ROLE_NAME input.'
     required: true
 
   # parameters with defaults
-  aws_region:
+  aws-region:
     description: 'AWS region for deployment'
     required: false
     default: 'eu-west-2'
 
-  oidc_entry_role_arn:
+  oidc-entry-role-arn:
     description: 'ARN of the OIDC entry role (github-actions-oidc-entry-role)'
     required: false
     default: arn:aws:iam::020844256789:role/github-actions-oidc-entry-role
@@ -37,20 +37,20 @@ inputs:
     default: 'CAPABILITY_NAMED_IAM CAPABILITY_AUTO_EXPAND'
 
   # Descriptive Optional Parameters
-  summary_title:
+  summary-title:
     description: 'Title for deployment summary'
     required: false
     default: 'Deployment Summary'
 
-  summary_icon:
+  summary-icon:
     description: 'Icon emoji for deployment summary'
     required: false
     default: ':rocket:'
 
 outputs:
-  stack_outputs:
+  stack-outputs:
     description: 'JSON string of stack outputs'
-    value: ${{ steps.get-outputs.outputs.stack_outputs }}
+    value: ${{ steps.get-outputs.outputs.stack-outputs }}
 
 runs:
   using: 'composite'
@@ -58,40 +58,40 @@ runs:
     - name: Configure AWS credentials (OIDC Entry Role)
       uses: aws-actions/configure-aws-credentials@v4
       with:
-        role-to-assume: ${{ inputs.oidc_entry_role_arn }}
-        aws-region: ${{ inputs.aws_region }}
+        role-to-assume: ${{ inputs.oidc-entry-role-arn }}
+        aws-region: ${{ inputs.aws-region }}
         role-session-name: ${{ github.repository_owner }}-${{ github.event.repository.name }}
 
     - name: Configure AWS credentials (Deployment Role)
       uses: aws-actions/configure-aws-credentials@v4
       with:
-        role-to-assume: ${{ inputs.deployment_role_arn }}
-        aws-region: ${{ inputs.aws_region }}
+        role-to-assume: ${{ inputs.deployment-role-arn }}
+        aws-region: ${{ inputs.aws-region }}
         role-session-name: ${{ github.repository_owner }}-${{ github.event.repository.name }}-deploy
         role-chaining: true
 
     - name: Validate CloudFormation template
       shell: bash
       run: |
-        echo "Validating CloudFormation template: ${{ inputs.template_file }}"
+        echo "Validating CloudFormation template: ${{ inputs.template-file }}"
         aws cloudformation validate-template \
-          --template-body file://${{ inputs.template_file }}
+          --template-body file://${{ inputs.template-file }}
 
     - name: Deploy CloudFormation stack
       shell: bash
       run: |
-        echo "Deploying CloudFormation stack: ${{ inputs.stack_name }}"
+        echo "Deploying CloudFormation stack: ${{ inputs.stack-name }}"
 
         # Deploy!
         aws cloudformation deploy \
-          --stack-name ${{ inputs.stack_name }} \
-          --template-file ${{ inputs.template_file }} \
+          --stack-name ${{ inputs.stack-name }} \
+          --template-file ${{ inputs.template-file }} \
           --tags \
             Project=${{ github.repository_owner }}-${{ github.event.repository.name }} \
             ManagedBy=GitHubActions \
             GitCommit=${{ github.sha }} \
           --no-fail-on-empty-changeset \
-          --region ${{ inputs.aws_region }} \
+          --region ${{ inputs.aws-region }} \
           --parameter-overrides ${{ inputs.parameters }} \
           --capabilities ${{ inputs.capabilities }}
 
@@ -101,7 +101,7 @@ runs:
       run: |
         echo "Fetching stack outputs..."
         OUTPUTS=$(aws cloudformation describe-stacks \
-          --stack-name ${{ inputs.stack_name }} \
+          --stack-name ${{ inputs.stack-name }} \
           --query 'Stacks[0].Outputs' \
           --output json)
 
@@ -109,24 +109,24 @@ runs:
         echo "$OUTPUTS" | jq -r '.[] | "\(.OutputKey): \(.OutputValue)"'
 
         # Export outputs as JSON for potential use by caller
-        echo "stack_outputs<<EOF" >> $GITHUB_OUTPUT
+        echo "stack-outputs<<EOF" >> $GITHUB_OUTPUT
         echo "$OUTPUTS" >> $GITHUB_OUTPUT
         echo "EOF" >> $GITHUB_OUTPUT
 
     - name: Display deployment summary
       shell: bash
       run: |
-        echo "### ${{ inputs.summary_title }} ${{ inputs.summary_icon }}" >> $GITHUB_STEP_SUMMARY
+        echo "### ${{ inputs.summary-title }} ${{ inputs.summary-icon }}" >> $GITHUB_STEP_SUMMARY
         echo "" >> $GITHUB_STEP_SUMMARY
-        echo "**Stack Name:** ${{ inputs.stack_name }}" >> $GITHUB_STEP_SUMMARY
-        echo "**Template:** ${{ inputs.template_file }}" >> $GITHUB_STEP_SUMMARY
-        echo "**Region:** ${{ inputs.aws_region }}" >> $GITHUB_STEP_SUMMARY
+        echo "**Stack Name:** ${{ inputs.stack-name }}" >> $GITHUB_STEP_SUMMARY
+        echo "**Template:** ${{ inputs.template-file }}" >> $GITHUB_STEP_SUMMARY
+        echo "**Region:** ${{ inputs.aws-region }}" >> $GITHUB_STEP_SUMMARY
         echo "**Commit:** ${{ github.sha }}" >> $GITHUB_STEP_SUMMARY
         echo "" >> $GITHUB_STEP_SUMMARY
 
         # Display stack outputs if they exist
         OUTPUTS=$(aws cloudformation describe-stacks \
-          --stack-name ${{ inputs.stack_name }} \
+          --stack-name ${{ inputs.stack-name }} \
           --query 'Stacks[0].Outputs' \
           --output json 2>/dev/null || echo "[]")
 
