@@ -5,16 +5,16 @@ Parameters:
   GitHubOrg:
     Type: String
     Default: thekhoo
-    Description: GitHub organization name
+    Description: GitHub organization or repository owner name
 
   GitHubRepo:
     Type: String
     Default: speedsnake
     Description: GitHub repository name
 
-  CentralOIDCRoleArn:
+  CreateDeploymentRoleArn:
     Type: String
-    Description: ARN of the central OIDC role that will assume this deployment role
+    Description: ARN of the github-actions-create-deployment-role that will create this deployment role
     AllowedPattern: 'arn:aws:iam::\d{12}:role/.+'
     ConstraintDescription: Must be a valid IAM role ARN
 
@@ -22,18 +22,16 @@ Resources:
   DeploymentRole:
     Type: AWS::IAM::Role
     Properties:
-      RoleName: !Sub 'GithubActions-PR-${GitHubOrg}-${GitHubRepo}-deploy'
+      RoleName: !Sub 'github-actions-${GitHubOrg}-${GitHubRepo}'
       Description: !Sub 'Deployment role for ${GitHubOrg}/${GitHubRepo} repository'
       AssumeRolePolicyDocument:
         Version: '2012-10-17'
         Statement:
           - Effect: Allow
             Principal:
-              AWS: !Ref CentralOIDCRoleArn
+              AWS: !Ref CreateDeploymentRoleArn
             Action: sts:AssumeRole
       Tags:
-        - Key: allow-github-actions-access
-          Value: 'true'
         - Key: Project
           Value: speedsnake
         - Key: ManagedBy
