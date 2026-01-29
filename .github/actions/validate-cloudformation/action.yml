@@ -2,19 +2,29 @@ name: 'Validate CloudFormation Templates'
 description: 'Validate CloudFormation templates using cfn-lint and AWS validate-template'
 
 inputs:
-  template-paths:
+  template_paths:
     description: 'Space-separated list of CloudFormation template paths to validate'
     required: true
+  
+  python_version:
+    description: 'Python version to use (e.g., 3.13, 3.14)'
+    required: true
 
-  aws-region:
+  validation_role_arn:
+    description: 'ARN of the deployment role to assume for CloudFormation operations. If not provided, defaults to github-actions-{owner}-{repo} or uses DEPLOYMENT_ROLE_NAME input.'
+    required: true
+
+  aws_region:
     description: 'AWS region for validation'
     required: false
     default: 'eu-west-2'
 
-  oidc-entry-role-arn:
+  oidc_entry_role_arn:
     description: 'ARN of the OIDC entry role (github-actions-oidc-entry-role)'
     required: false
     default: 'arn:aws:iam::020844256789:role/github-actions-oidc-entry-role'
+
+  
 
 runs:
   using: 'composite'
@@ -26,17 +36,13 @@ runs:
 
     - name: Set up Python
       shell: bash
-      run: uv python install 3.13
-
-    - name: Install dependencies
-      shell: bash
-      run: uv sync --group development
+      run: uv python install ${{ inputs.python_version }}
 
     - name: Static validation with cfn-lint
       shell: bash
       run: |
         echo "=== Static Validation with cfn-lint ==="
-        TEMPLATES="${{ inputs.template-paths }}"
+        TEMPLATES="${{ inputs.template_paths }}"
         VALIDATION_FAILED=0
 
         for template in $TEMPLATES; do
@@ -49,7 +55,7 @@ runs:
             continue
           fi
 
-          if cfn-lint "$template"; then
+          if uv run --with cfn-lint cfn-lint "$template"; then
             echo "✅ cfn-lint passed: $template"
           else
             echo "❌ cfn-lint failed: $template"
@@ -69,16 +75,24 @@ runs:
     - name: Configure AWS credentials (OIDC Entry Role)
       uses: aws-actions/configure-aws-credentials@v4
       with:
-        role-to-assume: ${{ inputs.oidc-entry-role-arn }}
-        aws-region: ${{ inputs.aws-region }}
-        role-session-name: ${{ github.repository_owner }}-${{ github.event.repository.name }}-validate
+        role-to-assume: ${{ inputs.oidc_entry_role_arn }}
+        aws-region: ${{ inputs.aws_region }}
+        role-session-name: ${{ github.repository_owner }}-${{ github.event.repository.name }}
+
+    - name: Configure AWS credentials (Deployment Role)
+      uses: aws-actions/configure-aws-credentials@v4
+      with:
+        role-to-assume: ${{ inputs.validation_role_arn }}
+        aws-region: ${{ inputs.aws_region }}
+        role-session-name: ${{ github.repository_owner }}-${{ github.event.repository.name }}-deploy
+        role-chaining: true
 
     - name: AWS CloudFormation validation
       shell: bash
       run: |
         echo ""
         echo "=== AWS CloudFormation Validation ==="
-        TEMPLATES="${{ inputs.template-paths }}"
+        TEMPLATES="${{ inputs.template_paths }}"
         VALIDATION_FAILED=0
 
         for template in $TEMPLATES; do

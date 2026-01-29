@@ -20,8 +20,6 @@ Resources:
     Type: AWS::S3::Bucket
     Properties:
       BucketName: !Sub '${ServiceName}-${Universe}'
-      DeletionPolicy: Retain
-      UpdateReplacePolicy: Retain
       VersioningConfiguration:
         Status: Suspended
       BucketEncryption:

@@ -9,6 +9,11 @@ permissions:
   contents: read
   pull-requests: read
 
+env:
+  AWS_REGION: eu-west-2
+  SERVICE_NAME: ${{ github.repository }}
+  VALIDATION_ROLE_ARN: arn:aws:iam::020844256789:role/github-actions-create-deployment-role
+
 jobs:
   check-changes:
     name: Check for Changes
@@ -33,7 +38,7 @@ jobs:
       - name: Run Python quality checks
         uses: ./.github/actions/python-quality-check
         with:
-          python-version: '3.13'
+          python-version: "3.13"
           check-type: lint
 
   test:
@@ -62,4 +67,7 @@ jobs:
       - name: Validate templates
         uses: ./.github/actions/validate-cloudformation
         with:
-          template-paths: infrastructure/deployment-role.yml infrastructure/template.yml
+          template_paths: infrastructure/deployment-role.yml infrastructure/template.yml
+          validation_role_arn: ${{ env.VALIDATION_ROLE_ARN }}
+          python_version: "3.13"
+          aws_region: ${{ env.AWS_REGION }}
