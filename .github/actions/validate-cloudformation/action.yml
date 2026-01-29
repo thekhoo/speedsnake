@@ -24,8 +24,6 @@ inputs:
     required: false
     default: 'arn:aws:iam::020844256789:role/github-actions-oidc-entry-role'
 
-  
-
 runs:
   using: 'composite'
   steps:
