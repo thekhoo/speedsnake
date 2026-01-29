@@ -5,6 +5,7 @@ on:
     branches:
       - main
     paths:
+      - 'infrastructure/deployment-role.yml'
       - 'infrastructure/template.yml'
       - '.github/workflows/deploy-infrastructure.yml'
   workflow_dispatch:
@@ -29,41 +30,200 @@ permissions:
 
 env:
   AWS_REGION: ${{ secrets.AWS_REGION }}
-  STACK_NAME: speedsnake-infrastructure
+  DEPLOYMENT_ROLE_STACK_NAME: speedsnake-deployment-role
+  INFRASTRUCTURE_STACK_NAME: speedsnake-infrastructure
 
 jobs:
-  deploy-infrastructure:
-    name: Deploy Infrastructure
+  check-changes:
+    name: Check for Changes
     runs-on: ubuntu-latest
+    outputs:
+      deployment_role_changed: ${{ steps.changes.outputs.deployment_role }}
+      infrastructure_changed: ${{ steps.changes.outputs.infrastructure }}
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 2
+
+      - name: Check which files changed
+        id: changes
+        run: |
+          # For workflow_dispatch, assume both need deployment
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            echo "deployment_role=true" >> $GITHUB_OUTPUT
+            echo "infrastructure=true" >> $GITHUB_OUTPUT
+            exit 0
+          fi
+
+          # Check if deployment-role.yml changed
+          if git diff --name-only HEAD^ HEAD | grep -q "infrastructure/deployment-role.yml"; then
+            echo "deployment_role=true" >> $GITHUB_OUTPUT
+            echo "Deployment role changed"
+          else
+            echo "deployment_role=false" >> $GITHUB_OUTPUT
+            echo "Deployment role not changed"
+          fi
+
+          # Check if template.yml or workflow changed
+          if git diff --name-only HEAD^ HEAD | grep -qE "infrastructure/template.yml|.github/workflows/deploy-infrastructure.yml"; then
+            echo "infrastructure=true" >> $GITHUB_OUTPUT
+            echo "Infrastructure changed"
+          else
+            echo "infrastructure=false" >> $GITHUB_OUTPUT
+            echo "Infrastructure not changed"
+          fi
+
+  deploy-deployment-role:
+    name: Deploy Deployment Role
+    runs-on: ubuntu-latest
+    needs: check-changes
+    if: needs.check-changes.outputs.deployment_role_changed == 'true'
+    outputs:
+      role_arn: ${{ steps.get-role-arn.outputs.role_arn }}
 
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
 
-      - name: Configure AWS credentials (Step 1 - Central OIDC Role)
+      - name: Extract repository name
+        id: repo-info
+        run: |
+          REPO_NAME=$(echo "${{ github.repository }}" | cut -d'/' -f2)
+          echo "repo_name=${REPO_NAME}" >> $GITHUB_OUTPUT
+          echo "Repository: ${{ github.repository_owner }}/${REPO_NAME}"
+
+      - name: Configure AWS credentials (OIDC Entry Role)
         uses: aws-actions/configure-aws-credentials@v4
         with:
-          role-to-assume: ${{ secrets.AWS_OIDC_ROLE_ARN }}
+          role-to-assume: ${{ secrets.AWS_OIDC_ENTRY_ROLE_ARN }}
+          aws-region: ${{ env.AWS_REGION }}
+          role-session-name: github-deploy-role-step1
+
+      - name: Configure AWS credentials (Create Deployment Role)
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ secrets.AWS_CREATE_DEPLOYMENT_ROLE_ARN }}
+          aws-region: ${{ env.AWS_REGION }}
+          role-session-name: github-deploy-role-step2
+          role-chaining: true
+
+      - name: Validate deployment role template
+        run: |
+          echo "Validating deployment role CloudFormation template..."
+          aws cloudformation validate-template \
+            --template-body file://infrastructure/deployment-role.yml
+
+      - name: Get AWS account ID
+        id: account
+        run: |
+          ACCOUNT_ID=$(aws sts get-caller-identity --query Account --output text)
+          echo "account_id=${ACCOUNT_ID}" >> $GITHUB_OUTPUT
+          echo "AWS Account ID: ${ACCOUNT_ID}"
+
+      - name: Deploy deployment role stack
+        run: |
+          echo "Deploying deployment role stack: ${{ env.DEPLOYMENT_ROLE_STACK_NAME }}"
+
+          # Get the ARN of the create-deployment-role
+          CREATE_ROLE_ARN="${{ secrets.AWS_CREATE_DEPLOYMENT_ROLE_ARN }}"
+
+          aws cloudformation deploy \
+            --stack-name ${{ env.DEPLOYMENT_ROLE_STACK_NAME }} \
+            --template-file infrastructure/deployment-role.yml \
+            --parameter-overrides \
+              GitHubOrg=${{ github.repository_owner }} \
+              GitHubRepo=${{ steps.repo-info.outputs.repo_name }} \
+              CreateDeploymentRoleArn=${CREATE_ROLE_ARN} \
+            --capabilities CAPABILITY_NAMED_IAM \
+            --tags \
+              Project=speedsnake \
+              ManagedBy=GitHubActions \
+              GitCommit=${{ github.sha }} \
+            --no-fail-on-empty-changeset \
+            --region ${{ env.AWS_REGION }}
+
+      - name: Get deployment role ARN
+        id: get-role-arn
+        run: |
+          ROLE_ARN=$(aws cloudformation describe-stacks \
+            --stack-name ${{ env.DEPLOYMENT_ROLE_STACK_NAME }} \
+            --query 'Stacks[0].Outputs[?OutputKey==`RoleArn`].OutputValue' \
+            --output text)
+
+          echo "role_arn=${ROLE_ARN}" >> $GITHUB_OUTPUT
+          echo "Deployment Role ARN: ${ROLE_ARN}"
+
+      - name: Display deployment role summary
+        run: |
+          echo "### Deployment Role Created :key:" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "**Stack Name:** ${{ env.DEPLOYMENT_ROLE_STACK_NAME }}" >> $GITHUB_STEP_SUMMARY
+          echo "**Role Name:** github-actions-${{ github.repository_owner }}-${{ steps.repo-info.outputs.repo_name }}" >> $GITHUB_STEP_SUMMARY
+          echo "**Role ARN:** ${{ steps.get-role-arn.outputs.role_arn }}" >> $GITHUB_STEP_SUMMARY
+          echo "**Region:** ${{ env.AWS_REGION }}" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+
+  deploy-infrastructure:
+    name: Deploy Infrastructure
+    runs-on: ubuntu-latest
+    needs: [check-changes, deploy-deployment-role]
+    if: |
+      always() &&
+      needs.check-changes.outputs.infrastructure_changed == 'true' &&
+      (needs.deploy-deployment-role.result == 'success' || needs.deploy-deployment-role.result == 'skipped')
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Extract repository name
+        id: repo-info
+        run: |
+          REPO_NAME=$(echo "${{ github.repository }}" | cut -d'/' -f2)
+          echo "repo_name=${REPO_NAME}" >> $GITHUB_OUTPUT
+
+      - name: Get AWS account ID and construct deployment role ARN
+        id: aws-info
+        run: |
+          # Construct the deployment role ARN
+          # We need to get the account ID first
+          ROLE_NAME="github-actions-${{ github.repository_owner }}-${{ steps.repo-info.outputs.repo_name }}"
+          echo "role_name=${ROLE_NAME}" >> $GITHUB_OUTPUT
+          echo "Deployment role name: ${ROLE_NAME}"
+
+      - name: Configure AWS credentials (OIDC Entry Role)
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ secrets.AWS_OIDC_ENTRY_ROLE_ARN }}
           aws-region: ${{ env.AWS_REGION }}
           role-session-name: github-deploy-infra-step1
 
-      - name: Configure AWS credentials (Step 2 - Assume Deployment Role)
+      - name: Get account ID and construct deployment role ARN
+        id: deployment-role
+        run: |
+          ACCOUNT_ID=$(aws sts get-caller-identity --query Account --output text)
+          DEPLOYMENT_ROLE_ARN="arn:aws:iam::${ACCOUNT_ID}:role/${{ steps.aws-info.outputs.role_name }}"
+          echo "deployment_role_arn=${DEPLOYMENT_ROLE_ARN}" >> $GITHUB_OUTPUT
+          echo "Deployment Role ARN: ${DEPLOYMENT_ROLE_ARN}"
+
+      - name: Configure AWS credentials (Deployment Role)
         uses: aws-actions/configure-aws-credentials@v4
         with:
-          role-to-assume: ${{ secrets.AWS_DEPLOY_ROLE_ARN }}
+          role-to-assume: ${{ steps.deployment-role.outputs.deployment_role_arn }}
           aws-region: ${{ env.AWS_REGION }}
           role-session-name: github-deploy-infra-step2
           role-chaining: true
 
-      - name: Validate CloudFormation template
+      - name: Validate infrastructure template
         run: |
-          echo "Validating CloudFormation template..."
+          echo "Validating infrastructure CloudFormation template..."
           aws cloudformation validate-template \
             --template-body file://infrastructure/template.yml
 
-      - name: Deploy CloudFormation stack
+      - name: Deploy infrastructure stack
         run: |
-          echo "Deploying infrastructure stack: ${{ env.STACK_NAME }}"
+          echo "Deploying infrastructure stack: ${{ env.INFRASTRUCTURE_STACK_NAME }}"
 
           # Set parameters based on workflow trigger
           if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
@@ -75,7 +235,7 @@ jobs:
           fi
 
           aws cloudformation deploy \
-            --stack-name ${{ env.STACK_NAME }} \
+            --stack-name ${{ env.INFRASTRUCTURE_STACK_NAME }} \
             --template-file infrastructure/template.yml \
             --parameter-overrides \
               BucketName=${BUCKET_NAME} \
@@ -92,7 +252,7 @@ jobs:
         run: |
           echo "Fetching stack outputs..."
           OUTPUTS=$(aws cloudformation describe-stacks \
-            --stack-name ${{ env.STACK_NAME }} \
+            --stack-name ${{ env.INFRASTRUCTURE_STACK_NAME }} \
             --query 'Stacks[0].Outputs' \
             --output json)
 
@@ -108,11 +268,11 @@ jobs:
           echo "bucket-arn=${BUCKET_ARN}" >> $GITHUB_OUTPUT
           echo "bucket-region=${BUCKET_REGION}" >> $GITHUB_OUTPUT
 
-      - name: Display deployment summary
+      - name: Display infrastructure deployment summary
         run: |
-          echo "### Deployment Summary :rocket:" >> $GITHUB_STEP_SUMMARY
+          echo "### Infrastructure Deployment Summary :rocket:" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
-          echo "**Stack Name:** ${{ env.STACK_NAME }}" >> $GITHUB_STEP_SUMMARY
+          echo "**Stack Name:** ${{ env.INFRASTRUCTURE_STACK_NAME }}" >> $GITHUB_STEP_SUMMARY
           echo "**Region:** ${{ env.AWS_REGION }}" >> $GITHUB_STEP_SUMMARY
           echo "**Commit:** ${{ github.sha }}" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
