@@ -18,9 +18,9 @@ permissions:
 
 env:
   AWS_REGION: eu-west-2
-  SERVICE_NAME: ${{ github.repository }}
+  SERVICE_NAME: ${{ github.event.repository.name }}
   CREATE_DEPLOYMENT_ROLE_ARN: arn:aws:iam::020844256789:role/github-actions-create-deployment-role
-  DEPLOYMENT_IAM_ROLE_NAME: github-actions-${{ github.repository_owner }}-${{ github.repository }}-deployment
+  DEPLOYMENT_IAM_ROLE_NAME: github-actions-${{ github.repository_owner }}-${{ github.event.repository.name }}-deployment
   DEPLOYMENT_ROLE_STACK_NAME: speedsnake-deployment-role
   INFRASTRUCTURE_STACK_NAME: speedsnake-infrastructure
   REGISTRY_IMAGE: thekhoo/speedsnake

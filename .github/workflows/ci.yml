@@ -11,7 +11,7 @@ permissions:
 
 env:
   AWS_REGION: eu-west-2
-  SERVICE_NAME: ${{ github.repository }}
+  SERVICE_NAME: ${{ github.event.repository.name }}
   VALIDATION_ROLE_ARN: arn:aws:iam::020844256789:role/github-actions-create-deployment-role
 
 jobs:
