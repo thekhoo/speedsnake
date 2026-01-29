@@ -5,10 +5,6 @@ Parameters:
   ServiceName:
     Description: The name of this service
     Type: String
-    AllowedPattern: '^[a-z0-9][a-z0-9-]*[a-z0-9]$'
-    MinLength: 3
-    MaxLength: 50
-    ConstraintDescription: Must be lowercase alphanumeric with hyphens, 3-50 characters
 
   Universe:
     Description: The universe we live in
@@ -21,10 +17,6 @@ Parameters:
   DeploymentRoleName:
     Description: The name of the deployment IAM role
     Type: String
-    AllowedPattern: '^[a-zA-Z0-9-_+=,.@]{1,64}$'
-    MinLength: 1
-    MaxLength: 64
-    ConstraintDescription: Must be 1-64 characters of alphanumeric and special characters - _+=,.@
 
 Mappings:
   global:

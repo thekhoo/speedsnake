@@ -15,10 +15,11 @@ repository = "https://github.com/thekhoo/speedsnake"
 
 [dependency-groups]
 development = [
+  'cfn-lint',
   'pytest',
   'pytest-sugar',
-  'ruff',
   'pyrefly',
+  'ruff',
 ]
 
 [tool.setuptools.packages.find]
