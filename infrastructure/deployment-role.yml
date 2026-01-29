@@ -109,7 +109,6 @@ Resources:
                   - s3:GetBucketNotification
                   - s3:PutBucketCors
                   - s3:GetBucketCors
-                  - s3:DeleteBucketCors
                   - s3:PutBucketTagging
                   - s3:GetBucketTagging
                   - s3:GetBucketLocation
