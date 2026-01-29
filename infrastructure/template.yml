@@ -19,7 +19,7 @@ Resources:
   ServiceBucket:
     Type: AWS::S3::Bucket
     Properties:
-      BucketName: !Sub '${ServiceName}-${Universe}'
+      BucketName: !Sub '${Universe}-${ServiceName}'
       VersioningConfiguration:
         Status: Suspended
       BucketEncryption:

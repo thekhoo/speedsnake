@@ -137,7 +137,7 @@ jobs:
         uses: ./.github/actions/deploy-cloudformation
         with:
           deployment_role_arn: ${{ env.CREATE_DEPLOYMENT_ROLE_ARN }}
-          stack_name: ${{ env.DEPLOYMENT_ROLE_STACK_NAME }}-${{ matrix.universe }}
+          stack_name: ${{ matrix.universe }}-${{ env.DEPLOYMENT_ROLE_STACK_NAME }}
           template_file: infrastructure/deployment-role.yml
           parameters: Universe=${{ matrix.universe }} ServiceName=${{ env.SERVICE_NAME }} DeploymentRoleName=${{ env.DEPLOYMENT_IAM_ROLE_NAME}}
           summary_title: Deployment Role Created (${{ matrix.universe }})
@@ -166,7 +166,7 @@ jobs:
         uses: ./.github/actions/deploy-cloudformation
         with:
           deployment_role_arn: arn:aws:iam::020844256789:role/${{ env.DEPLOYMENT_IAM_ROLE_NAME}}
-          stack_name: ${{ env.INFRASTRUCTURE_STACK_NAME }}-${{ matrix.universe }}
+          stack_name: ${{ matrix.universe }}-${{ env.INFRASTRUCTURE_STACK_NAME }}
           template_file: infrastructure/template.yml
           parameters: Universe=${{ matrix.universe }} ServiceName=${{ env.SERVICE_NAME }}
           summary_title: Infrastructure Deployment Summary (${{ matrix.universe }})

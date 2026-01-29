@@ -28,7 +28,7 @@ Resources:
     Type: AWS::IAM::Role
     Properties:
       RoleName: !Ref DeploymentRoleName
-      Description: !Sub 'Deployment role for ${ServiceName} in ${Universe} environment'
+      Description: !Sub 'Deployment role for ${ServiceName} in ${Universe}'
       AssumeRolePolicyDocument:
         Version: '2012-10-17'
         Statement:
@@ -71,7 +71,7 @@ Resources:
                   - cloudformation:DeleteChangeSet
                   - cloudformation:ListChangeSets
                 Resource:
-                  - !Sub 'arn:aws:cloudformation:*:${AWS::AccountId}:stack/speedsnake-*/*'
+                  - !Sub 'arn:aws:cloudformation:*:${AWS::AccountId}:stack/${Universe}-${ServiceName}-*/*'
 
               - Sid: CloudFormationListOperation
                 Effect: Allow
@@ -103,7 +103,7 @@ Resources:
                   - s3:GetBucketPolicy
                   - s3:DeleteBucketPolicy
                 Resource:
-                  - arn:aws:s3:::speedsnake*
+                  - !Sub 'arn:aws:s3:::${Universe}-${ServiceName}*'
 
               - Sid: S3ListAllBuckets
                 Effect: Allow
