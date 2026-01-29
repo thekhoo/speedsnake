@@ -13,13 +13,7 @@ inputs:
 
   deployment_role_arn:
     description: 'ARN of the deployment role to assume for CloudFormation operations. If not provided, defaults to github-actions-{owner}-{repo} or uses DEPLOYMENT_ROLE_NAME input.'
-    required: false
-    default: ''
-
-  deployment_role_name:
-    description: 'Override deployment role name (without account/ARN prefix). Defaults to github-actions-{owner}-{repo}. Use this for special roles like github-actions-create-deployment-role.'
-    required: false
-    default: ''
+    required: true
 
   # parameters with defaults
   aws_region:
@@ -61,35 +55,6 @@ outputs:
 runs:
   using: 'composite'
   steps:
-    - name: Construct deployment role ARN
-      id: deployment-role
-      shell: bash
-      run: |
-        # Hardcoded AWS account number
-        ACCOUNT_ID="020844256789"
-
-        # Determine deployment role ARN
-        if [ -n "${{ inputs.deployment_role_arn }}" ]; then
-          # Use provided ARN
-          DEPLOYMENT_ROLE_ARN="${{ inputs.deployment_role_arn }}"
-          echo "Using provided deployment role ARN: ${DEPLOYMENT_ROLE_ARN}"
-        elif [ -n "${{ inputs.deployment_role_name }}" ]; then
-          # Use provided role name
-          DEPLOYMENT_ROLE_ARN="arn:aws:iam::${ACCOUNT_ID}:role/${{ inputs.deployment_role_name }}"
-          echo "Using provided role name: ${{ inputs.deployment_role_name }}"
-          echo "Constructed ARN: ${DEPLOYMENT_ROLE_ARN}"
-        else
-          # Default: construct from repository metadata
-          REPO_NAME=$(echo "${{ github.repository }}" | cut -d'/' -f2)
-          REPO_OWNER="${{ github.repository_owner }}"
-          ROLE_NAME="github-actions-${REPO_OWNER}-${REPO_NAME}"
-          DEPLOYMENT_ROLE_ARN="arn:aws:iam::${ACCOUNT_ID}:role/${ROLE_NAME}"
-          echo "Using default role name: ${ROLE_NAME}"
-          echo "Constructed ARN: ${DEPLOYMENT_ROLE_ARN}"
-        fi
-
-        echo "deployment_role_arn=${DEPLOYMENT_ROLE_ARN}" >> $GITHUB_OUTPUT
-
     - name: Configure AWS credentials (OIDC Entry Role)
       uses: aws-actions/configure-aws-credentials@v4
       with:
@@ -100,7 +65,7 @@ runs:
     - name: Configure AWS credentials (Deployment Role)
       uses: aws-actions/configure-aws-credentials@v4
       with:
-        role-to-assume: ${{ steps.deployment-role.outputs.deployment_role_arn }}
+        role-to-assume: ${{ inputs.deployment_role_arn }}
         aws-region: ${{ inputs.aws_region }}
         role-session-name: ${{ github.repository_owner }}-${{ github.event.repository.name }}-deploy
         role-chaining: true

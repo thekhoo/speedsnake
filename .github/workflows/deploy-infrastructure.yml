@@ -8,28 +8,15 @@ on:
       - "infrastructure/deployment-role.yml"
       - "infrastructure/template.yml"
       - ".github/workflows/deploy-infrastructure.yml"
-  workflow_dispatch:
-    inputs:
-      bucket_name:
-        description: "S3 bucket base name (default: speedsnake)"
-        required: false
-        default: "speedsnake"
-      environment:
-        description: "Deployment environment"
-        required: false
-        default: "production"
-        type: choice
-        options:
-          - production
-          - staging
-          - development
 
 permissions:
   id-token: write
   contents: read
 
 env:
-  AWS_REGION: ${{ secrets.AWS_REGION }}
+  AWS_REGION: eu-west-2
+  SERVICE_NAME: ${{ github.repository }}
+  DEPLOYMENT_IAM_ROLE_NAME: github-actions-${{ github.repository_owner }}-${{ github.repository }}-deployment
   DEPLOYMENT_ROLE_STACK_NAME: speedsnake-deployment-role
   INFRASTRUCTURE_STACK_NAME: speedsnake-infrastructure
 
@@ -132,19 +119,14 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
 
-      - name: Get repository metadata
-        id: repo-info
-        uses: ./.github/actions/get-repo-metadata
-
       - name: Deploy deployment role CloudFormation stack
         uses: ./.github/actions/deploy-cloudformation
         with:
-          deployment_role_name: github-actions-create-deployment-role
+          deployment_role_arn: arn:aws:iam::020844256789:role/github-actions-create-deployment-role
           stack_name: ${{ env.DEPLOYMENT_ROLE_STACK_NAME }}
           template_file: infrastructure/deployment-role.yml
-          parameters: GitHubOrg=${{ steps.repo-info.outputs.repo_owner }} GitHubRepo=${{ steps.repo-info.outputs.repo_name }} CreateDeploymentRoleArn=arn:aws:iam::020844256789:role/github-actions-create-deployment-role
+          parameters: Universe=production ServiceName=${{ env.SERVICE_NAME }} DeploymentRoleName=${{ env.DEPLOYMENT_IAM_ROLE_NAME}}
           summary_title: Deployment Role Created
-          summary_icon: ':key:'
 
   deploy-infrastructure:
     name: Deploy Infrastructure
@@ -161,26 +143,11 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
 
-      - name: Set deployment parameters
-        id: params
-        run: |
-          # Set parameters based on workflow trigger
-          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
-            BUCKET_NAME="${{ github.event.inputs.bucket_name }}"
-            ENVIRONMENT="${{ github.event.inputs.environment }}"
-          else
-            BUCKET_NAME="speedsnake"
-            ENVIRONMENT="production"
-          fi
-
-          echo "bucket_name=${BUCKET_NAME}" >> $GITHUB_OUTPUT
-          echo "environment=${ENVIRONMENT}" >> $GITHUB_OUTPUT
-
       - name: Deploy infrastructure CloudFormation stack
         uses: ./.github/actions/deploy-cloudformation
         with:
+          deployment_role_arn: arn:aws:iam::020844256789:role/${{ env.DEPLOYMENT_IAM_ROLE_NAME}}
           stack_name: ${{ env.INFRASTRUCTURE_STACK_NAME }}
           template_file: infrastructure/template.yml
-          parameters: BucketName=${{ steps.params.outputs.bucket_name }} Environment=${{ steps.params.outputs.environment }}
+          parameters: Universe=production ServiceName=${{ env.SERVICE_NAME }}
           summary_title: Infrastructure Deployment Summary
-          summary_icon: ":rocket:"

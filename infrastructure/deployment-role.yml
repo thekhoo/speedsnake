@@ -2,42 +2,57 @@ AWSTemplateFormatVersion: '2010-09-09'
 Description: 'IAM deployment role for SpeedSnake infrastructure - allows GitHub Actions to deploy CloudFormation stacks'
 
 Parameters:
-  GitHubOrg:
+  ServiceName:
+    Description: The name of this service
     Type: String
-    Default: thekhoo
-    Description: GitHub organization or repository owner name
+    AllowedPattern: '^[a-z0-9][a-z0-9-]*[a-z0-9]$'
+    MinLength: 3
+    MaxLength: 50
+    ConstraintDescription: Must be lowercase alphanumeric with hyphens, 3-50 characters
 
-  GitHubRepo:
+  Universe:
+    Description: The universe we live in
     Type: String
-    Default: speedsnake
-    Description: GitHub repository name
+    AllowedValues:
+      - production
+      - staging
+      - development
 
-  CreateDeploymentRoleArn:
+  DeploymentRoleName:
+    Description: The name of the deployment IAM role
     Type: String
-    Description: ARN of the github-actions-create-deployment-role that will create this deployment role
-    AllowedPattern: 'arn:aws:iam::\d{12}:role/.+'
-    ConstraintDescription: Must be a valid IAM role ARN
+    AllowedPattern: '^[a-zA-Z0-9-_+=,.@]{1,64}$'
+    MinLength: 1
+    MaxLength: 64
+    ConstraintDescription: Must be 1-64 characters of alphanumeric and special characters - _+=,.@
+
+Mappings:
+  global:
+    Configuration:
+      GithubOIDCRoleArn: arn:aws:iam::020844256789:role/github-actions-oidc-entry-role
 
 Resources:
   DeploymentRole:
     Type: AWS::IAM::Role
     Properties:
-      RoleName: !Sub 'github-actions-${GitHubOrg}-${GitHubRepo}'
-      Description: !Sub 'Deployment role for ${GitHubOrg}/${GitHubRepo} repository'
+      RoleName: !Ref DeploymentRoleName
+      Description: !Sub 'Deployment role for ${ServiceName} in ${Universe} environment'
       AssumeRolePolicyDocument:
         Version: '2012-10-17'
         Statement:
           - Effect: Allow
             Principal:
-              AWS: !Ref CreateDeploymentRoleArn
-            Action: sts:AssumeRole
+              AWS: !FindInMap [global, Configuration, GithubOIDCRoleArn]
+            Action: 
+              - sts:AssumeRole
+              - sts:TagSession
       Tags:
-        - Key: Project
-          Value: speedsnake
+        - Key: service-name
+          Value: !Ref ServiceName
+        - Key: application 
+          Value: !Ref ServiceName
         - Key: ManagedBy
           Value: CloudFormation
-        - Key: Repository
-          Value: !Sub '${GitHubOrg}/${GitHubRepo}'
       ManagedPolicyArns: []
       Policies:
         - PolicyName: CloudFormationDeployment
