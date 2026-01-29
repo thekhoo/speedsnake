@@ -91,24 +91,11 @@ jobs:
           echo "repo_name=${REPO_NAME}" >> $GITHUB_OUTPUT
           echo "Repository: ${{ github.repository_owner }}/${REPO_NAME}"
 
-      - name: Configure AWS credentials (OIDC Entry Role)
-        uses: aws-actions/configure-aws-credentials@v4
-        with:
-          role-to-assume: ${{ secrets.AWS_OIDC_ENTRY_ROLE_ARN }}
-          aws-region: ${{ env.AWS_REGION }}
-          role-session-name: github-deploy-role-step1
-
-      - name: Configure AWS credentials (Create Deployment Role)
-        uses: aws-actions/configure-aws-credentials@v4
-        with:
-          role-to-assume: ${{ secrets.AWS_CREATE_DEPLOYMENT_ROLE_ARN }}
-          aws-region: ${{ env.AWS_REGION }}
-          role-session-name: github-deploy-role-step2
-          role-chaining: true
-
       - name: Deploy deployment role CloudFormation stack
         uses: ./.github/actions/deploy-cloudformation
         with:
+          oidc_entry_role_arn: ${{ secrets.AWS_OIDC_ENTRY_ROLE_ARN }}
+          deployment_role_arn: ${{ secrets.AWS_CREATE_DEPLOYMENT_ROLE_ARN }}
           stack_name: ${{ env.DEPLOYMENT_ROLE_STACK_NAME }}
           template_file: infrastructure/deployment-role.yml
           parameters: GitHubOrg=${{ github.repository_owner }} GitHubRepo=${{ steps.repo-info.outputs.repo_name }} CreateDeploymentRoleArn=${{ secrets.AWS_CREATE_DEPLOYMENT_ROLE_ARN }}
@@ -130,43 +117,16 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
 
-      - name: Extract repository name
+      - name: Extract repository name and construct deployment role name
         id: repo-info
         run: |
           REPO_NAME=$(echo "${{ github.repository }}" | cut -d'/' -f2)
           echo "repo_name=${REPO_NAME}" >> $GITHUB_OUTPUT
 
-      - name: Get AWS account ID and construct deployment role ARN
-        id: aws-info
-        run: |
-          # Construct the deployment role ARN
-          # We need to get the account ID first
-          ROLE_NAME="github-actions-${{ github.repository_owner }}-${{ steps.repo-info.outputs.repo_name }}"
-          echo "role_name=${ROLE_NAME}" >> $GITHUB_OUTPUT
+          # Construct deployment role name (ARN will be constructed by composite action)
+          ROLE_NAME="github-actions-${{ github.repository_owner }}-${REPO_NAME}"
+          echo "deployment_role_name=${ROLE_NAME}" >> $GITHUB_OUTPUT
           echo "Deployment role name: ${ROLE_NAME}"
-
-      - name: Configure AWS credentials (OIDC Entry Role)
-        uses: aws-actions/configure-aws-credentials@v4
-        with:
-          role-to-assume: ${{ secrets.AWS_OIDC_ENTRY_ROLE_ARN }}
-          aws-region: ${{ env.AWS_REGION }}
-          role-session-name: github-deploy-infra-step1
-
-      - name: Get account ID and construct deployment role ARN
-        id: deployment-role
-        run: |
-          ACCOUNT_ID=$(aws sts get-caller-identity --query Account --output text)
-          DEPLOYMENT_ROLE_ARN="arn:aws:iam::${ACCOUNT_ID}:role/${{ steps.aws-info.outputs.role_name }}"
-          echo "deployment_role_arn=${DEPLOYMENT_ROLE_ARN}" >> $GITHUB_OUTPUT
-          echo "Deployment Role ARN: ${DEPLOYMENT_ROLE_ARN}"
-
-      - name: Configure AWS credentials (Deployment Role)
-        uses: aws-actions/configure-aws-credentials@v4
-        with:
-          role-to-assume: ${{ steps.deployment-role.outputs.deployment_role_arn }}
-          aws-region: ${{ env.AWS_REGION }}
-          role-session-name: github-deploy-infra-step2
-          role-chaining: true
 
       - name: Set deployment parameters
         id: params
@@ -186,6 +146,8 @@ jobs:
       - name: Deploy infrastructure CloudFormation stack
         uses: ./.github/actions/deploy-cloudformation
         with:
+          oidc_entry_role_arn: ${{ secrets.AWS_OIDC_ENTRY_ROLE_ARN }}
+          deployment_role_arn: ${{ steps.repo-info.outputs.deployment_role_name }}
           stack_name: ${{ env.INFRASTRUCTURE_STACK_NAME }}
           template_file: infrastructure/template.yml
           parameters: BucketName=${{ steps.params.outputs.bucket_name }} Environment=${{ steps.params.outputs.environment }}
