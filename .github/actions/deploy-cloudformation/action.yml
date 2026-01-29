@@ -2,33 +2,52 @@ name: 'Deploy CloudFormation Stack'
 description: 'Validates and deploys a CloudFormation template with optional parameters'
 
 inputs:
-  oidc_entry_role_arn:
-    description: 'ARN of the OIDC entry role (github-actions-oidc-entry-role)'
-    required: true
-  deployment_role_arn:
-    description: 'ARN or name of the deployment role to assume for CloudFormation operations. If a role name is provided (without arn: prefix), the full ARN will be constructed automatically.'
-    required: true
+  # required parameters
   stack_name:
     description: 'CloudFormation stack name'
     required: true
+
   template_file:
     description: 'Path to CloudFormation template file'
     required: true
+
+  deployment_role_arn:
+    description: 'ARN of the deployment role to assume for CloudFormation operations. If not provided, defaults to github-actions-{owner}-{repo} or uses DEPLOYMENT_ROLE_NAME input.'
+    required: false
+    default: ''
+
+  deployment_role_name:
+    description: 'Override deployment role name (without account/ARN prefix). Defaults to github-actions-{owner}-{repo}. Use this for special roles like github-actions-create-deployment-role.'
+    required: false
+    default: ''
+
+  # parameters with defaults
+  aws_region:
+    description: 'AWS region for deployment'
+    required: false
+    default: 'eu-west-2'
+
+  oidc_entry_role_arn:
+    description: 'ARN of the OIDC entry role (github-actions-oidc-entry-role)'
+    required: false
+    default: arn:aws:iam::020844256789:role/github-actions-oidc-entry-role
+
   parameters:
     description: 'CloudFormation parameters (space-separated KEY=VALUE pairs)'
     required: false
     default: ''
+
   capabilities:
     description: 'CloudFormation capabilities (e.g., CAPABILITY_NAMED_IAM)'
     required: false
-    default: ''
-  aws_region:
-    description: 'AWS region for deployment'
-    required: true
+    default: 'CAPABILITY_NAMED_IAM CAPABILITY_AUTO_EXPAND'
+
+  # Descriptive Optional Parameters
   summary_title:
     description: 'Title for deployment summary'
     required: false
     default: 'Deployment Summary'
+
   summary_icon:
     description: 'Icon emoji for deployment summary'
     required: false
@@ -42,39 +61,48 @@ outputs:
 runs:
   using: 'composite'
   steps:
+    - name: Construct deployment role ARN
+      id: deployment-role
+      shell: bash
+      run: |
+        # Hardcoded AWS account number
+        ACCOUNT_ID="020844256789"
+
+        # Determine deployment role ARN
+        if [ -n "${{ inputs.deployment_role_arn }}" ]; then
+          # Use provided ARN
+          DEPLOYMENT_ROLE_ARN="${{ inputs.deployment_role_arn }}"
+          echo "Using provided deployment role ARN: ${DEPLOYMENT_ROLE_ARN}"
+        elif [ -n "${{ inputs.deployment_role_name }}" ]; then
+          # Use provided role name
+          DEPLOYMENT_ROLE_ARN="arn:aws:iam::${ACCOUNT_ID}:role/${{ inputs.deployment_role_name }}"
+          echo "Using provided role name: ${{ inputs.deployment_role_name }}"
+          echo "Constructed ARN: ${DEPLOYMENT_ROLE_ARN}"
+        else
+          # Default: construct from repository metadata
+          REPO_NAME=$(echo "${{ github.repository }}" | cut -d'/' -f2)
+          REPO_OWNER="${{ github.repository_owner }}"
+          ROLE_NAME="github-actions-${REPO_OWNER}-${REPO_NAME}"
+          DEPLOYMENT_ROLE_ARN="arn:aws:iam::${ACCOUNT_ID}:role/${ROLE_NAME}"
+          echo "Using default role name: ${ROLE_NAME}"
+          echo "Constructed ARN: ${DEPLOYMENT_ROLE_ARN}"
+        fi
+
+        echo "deployment_role_arn=${DEPLOYMENT_ROLE_ARN}" >> $GITHUB_OUTPUT
+
     - name: Configure AWS credentials (OIDC Entry Role)
       uses: aws-actions/configure-aws-credentials@v4
       with:
         role-to-assume: ${{ inputs.oidc_entry_role_arn }}
         aws-region: ${{ inputs.aws_region }}
-        role-session-name: github-deploy-cfn-step1
-
-    - name: Construct deployment role ARN if needed
-      id: deployment-role
-      shell: bash
-      run: |
-        DEPLOYMENT_ROLE_INPUT="${{ inputs.deployment_role_arn }}"
-
-        # Check if input is already a full ARN
-        if [[ "$DEPLOYMENT_ROLE_INPUT" == arn:aws:iam::* ]]; then
-          echo "Using provided ARN: $DEPLOYMENT_ROLE_INPUT"
-          DEPLOYMENT_ROLE_ARN="$DEPLOYMENT_ROLE_INPUT"
-        else
-          # Input is a role name, construct full ARN
-          echo "Input is role name, constructing full ARN..."
-          ACCOUNT_ID=$(aws sts get-caller-identity --query Account --output text)
-          DEPLOYMENT_ROLE_ARN="arn:aws:iam::${ACCOUNT_ID}:role/${DEPLOYMENT_ROLE_INPUT}"
-          echo "Constructed ARN: $DEPLOYMENT_ROLE_ARN"
-        fi
-
-        echo "deployment_role_arn=${DEPLOYMENT_ROLE_ARN}" >> $GITHUB_OUTPUT
+        role-session-name: ${{ github.repository_owner }}-${{ github.event.repository.name }}
 
     - name: Configure AWS credentials (Deployment Role)
       uses: aws-actions/configure-aws-credentials@v4
       with:
         role-to-assume: ${{ steps.deployment-role.outputs.deployment_role_arn }}
         aws-region: ${{ inputs.aws_region }}
-        role-session-name: github-deploy-cfn-step2
+        role-session-name: ${{ github.repository_owner }}-${{ github.event.repository.name }}-deploy
         role-chaining: true
 
     - name: Validate CloudFormation template
@@ -89,29 +117,18 @@ runs:
       run: |
         echo "Deploying CloudFormation stack: ${{ inputs.stack_name }}"
 
-        # Build deploy command
-        DEPLOY_CMD="aws cloudformation deploy \
+        # Deploy!
+        aws cloudformation deploy \
           --stack-name ${{ inputs.stack_name }} \
           --template-file ${{ inputs.template_file }} \
           --tags \
-            Project=speedsnake \
+            Project=${{ github.repository_owner }}-${{ github.event.repository.name }} \
             ManagedBy=GitHubActions \
             GitCommit=${{ github.sha }} \
           --no-fail-on-empty-changeset \
-          --region ${{ inputs.aws_region }}"
-
-        # Add parameters if provided
-        if [ -n "${{ inputs.parameters }}" ]; then
-          DEPLOY_CMD="$DEPLOY_CMD --parameter-overrides ${{ inputs.parameters }}"
-        fi
-
-        # Add capabilities if provided
-        if [ -n "${{ inputs.capabilities }}" ]; then
-          DEPLOY_CMD="$DEPLOY_CMD --capabilities ${{ inputs.capabilities }}"
-        fi
-
-        # Execute deployment
-        eval "$DEPLOY_CMD"
+          --region ${{ inputs.aws_region }} \
+          --parameter-overrides ${{ inputs.parameters }} \
+          --capabilities ${{ inputs.capabilities }}
 
     - name: Get stack outputs
       id: get-outputs
