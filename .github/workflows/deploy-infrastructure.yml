@@ -30,14 +30,13 @@ jobs:
     name: Lint
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
-
       - name: Run Python quality checks
-        uses: ./.github/actions/python-quality-check
+        uses: thekhoo/github-actions-shared/.github/actions/python-linting@main
         with:
-          python-version: "3.13"
-          check-type: lint
+          python-version: 3.13
+          directories: speedtest/ tests/
+          use-ruff: true
+          use-pyrefly: true
 
   test:
     name: Test
@@ -47,14 +46,11 @@ jobs:
       matrix:
         python-version: ["3.13", "3.14"]
     steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
-
       - name: Run Python quality checks
-        uses: ./.github/actions/python-quality-check
+        uses: thekhoo/github-actions-shared/.github/actions/python-pytest@main
         with:
           python-version: ${{ matrix.python-version }}
-          check-type: test
+          test-directories: tests/
 
   validate-templates:
     name: Validate CloudFormation Templates
