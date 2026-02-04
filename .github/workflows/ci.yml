@@ -15,21 +15,6 @@ env:
   VALIDATION_ROLE_ARN: arn:aws:iam::020844256789:role/github-actions-create-deployment-role
 
 jobs:
-  check-changes:
-    name: Check for Changes
-    runs-on: ubuntu-latest
-    outputs:
-      infrastructure_changed: ${{ steps.filter.outputs.infrastructure }}
-    steps:
-      - uses: actions/checkout@v4
-
-      - uses: dorny/paths-filter@v3
-        id: filter
-        with:
-          filters: |
-            infrastructure:
-              - 'infrastructure/deployment-role.yml'
-              - 'infrastructure/template.yml'
   lint:
     name: Lint
     runs-on: ubuntu-latest
@@ -56,18 +41,14 @@ jobs:
           python-version: ${{ matrix.python-version }}
           test-directories: tests/
 
+  # always validate templates whenever a PR is created
   validate-templates:
     name: Validate CloudFormation Templates
     runs-on: ubuntu-latest
-    needs: [check-changes]
-    if: needs.check-changes.outputs.infrastructure_changed == 'true'
     steps:
-      - uses: actions/checkout@v4
-
       - name: Validate templates
-        uses: ./.github/actions/validate-cloudformation
+        uses: thekhoo/github-actions-shared/.github/actions/validate-cloudformation@main
         with:
           template-paths: infrastructure/deployment-role.yml infrastructure/template.yml
           validation-role-arn: ${{ env.VALIDATION_ROLE_ARN }}
-          python-version: "3.13"
           aws-region: ${{ env.AWS_REGION }}
