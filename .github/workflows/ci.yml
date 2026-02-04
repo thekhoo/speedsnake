@@ -16,7 +16,7 @@ env:
 
 jobs:
   lint:
-    name: Lint
+    name: PR Linting
     runs-on: ubuntu-latest
     steps:
       - name: Run Python quality checks
@@ -28,7 +28,7 @@ jobs:
           use-pyrefly: true
 
   test:
-    name: Test
+    name: PR Unit Tests
     runs-on: ubuntu-latest
     strategy:
       fail-fast: false
