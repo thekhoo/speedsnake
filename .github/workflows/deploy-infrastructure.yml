@@ -76,44 +76,91 @@ jobs:
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
-        with:
-          fetch-depth: 2
 
-      - name: Check which files changed
-        id: changes
+      - name: Find last successful deployment
+        id: last-success
         run: |
-          # For workflow_dispatch, assume both need deployment
+          # For workflow_dispatch, deploy everything
           if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
-            echo "deployment_role=true" >> $GITHUB_OUTPUT
-            echo "infrastructure=true" >> $GITHUB_OUTPUT
+            echo "sha=workflow_dispatch" >> $GITHUB_OUTPUT
             exit 0
           fi
 
           # For tag pushes, skip infrastructure deployment
           if [[ "${{ github.ref }}" == refs/tags/* ]]; then
-            echo "deployment_role=false" >> $GITHUB_OUTPUT
-            echo "infrastructure=false" >> $GITHUB_OUTPUT
-            echo "Tag push detected - skipping infrastructure deployment"
+            echo "sha=tag_push" >> $GITHUB_OUTPUT
             exit 0
           fi
 
-          # Check if deployment-role.yml changed
-          if git diff --name-only HEAD^ HEAD | grep -q "infrastructure/deployment-role.yml"; then
-            echo "deployment_role=true" >> $GITHUB_OUTPUT
-            echo "Deployment role changed"
+          # Find the last successful workflow run on main branch
+          LAST_SUCCESS_SHA=$(gh run list \
+            --workflow=deploy-infrastructure.yml \
+            --branch=main \
+            --status=success \
+            --limit=1 \
+            --json headSha \
+            --jq '.[0].headSha')
+
+          if [ -z "$LAST_SUCCESS_SHA" ]; then
+            echo "No previous successful deployment found, will deploy all"
+            echo "sha=initial" >> $GITHUB_OUTPUT
           else
-            echo "deployment_role=false" >> $GITHUB_OUTPUT
-            echo "Deployment role not changed"
+            echo "Last successful deployment: $LAST_SUCCESS_SHA"
+            echo "sha=$LAST_SUCCESS_SHA" >> $GITHUB_OUTPUT
+          fi
+        env:
+          GH_TOKEN: ${{ github.token }}
+
+      - name: Check which files changed using GitHub API
+        id: changes
+        run: |
+          LAST_SHA="${{ steps.last-success.outputs.sha }}"
+
+          # For workflow_dispatch or initial deployment, deploy everything
+          if [ "$LAST_SHA" = "workflow_dispatch" ] || [ "$LAST_SHA" = "initial" ]; then
+            echo "deployment_role=true" >> $GITHUB_OUTPUT
+            echo "infrastructure=true" >> $GITHUB_OUTPUT
+            echo "✅ Manual trigger or initial deployment - deploying all infrastructure"
+            exit 0
           fi
 
-          # Check if template.yml or workflow changed
-          if git diff --name-only HEAD^ HEAD | grep -qE "infrastructure/template.yml|.github/workflows/deploy-infrastructure.yml"; then
+          # For tag pushes, skip infrastructure deployment
+          if [ "$LAST_SHA" = "tag_push" ]; then
+            echo "deployment_role=false" >> $GITHUB_OUTPUT
+            echo "infrastructure=false" >> $GITHUB_OUTPUT
+            echo "🏷️  Tag push detected - skipping infrastructure deployment"
+            exit 0
+          fi
+
+          # Use GitHub API to get changed files since last successful deployment
+          echo "Comparing $LAST_SHA...${{ github.sha }}"
+          CHANGED_FILES=$(gh api \
+            repos/${{ github.repository }}/compare/${LAST_SHA}...${{ github.sha }} \
+            --jq '.files[].filename')
+
+          echo "Changed files since last successful deployment:"
+          echo "$CHANGED_FILES"
+          echo ""
+
+          # Check if deployment-role.yml changed
+          if echo "$CHANGED_FILES" | grep -q "infrastructure/deployment-role.yml"; then
+            echo "deployment_role=true" >> $GITHUB_OUTPUT
+            echo "✅ Deployment role changed"
+          else
+            echo "deployment_role=false" >> $GITHUB_OUTPUT
+            echo "❌ Deployment role not changed"
+          fi
+
+          # Check if infrastructure files or actions changed
+          if echo "$CHANGED_FILES" | grep -qE "infrastructure/template.yml|.github/workflows/deploy-infrastructure.yml|.github/actions/deploy-cloudformation/action.yml|.github/actions/validate-cloudformation/action.yml"; then
             echo "infrastructure=true" >> $GITHUB_OUTPUT
-            echo "Infrastructure changed"
+            echo "✅ Infrastructure changed"
           else
             echo "infrastructure=false" >> $GITHUB_OUTPUT
-            echo "Infrastructure not changed"
+            echo "❌ Infrastructure not changed"
           fi
+        env:
+          GH_TOKEN: ${{ github.token }}
 
   deploy-deployment-role:
     name: Deploy Deployment Role (${{ matrix.universe }})
