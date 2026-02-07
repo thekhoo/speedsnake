@@ -14,7 +14,7 @@ requires-python = ">=3.13"
 repository = "https://github.com/thekhoo/speedsnake"
 
 [dependency-groups]
-development = [
+dev = [
   'cfn-lint',
   'pytest',
   'pytest-sugar',
