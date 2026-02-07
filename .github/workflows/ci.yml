@@ -47,7 +47,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Validate templates
-        uses: thekhoo/github-actions-shared/.github/actions/validate-cloudformation@main
+        uses: thekhoo/github-actions-shared/.github/actions/aws-cloudformation-validate@main
         with:
           template-paths: infrastructure/deployment-role.yml infrastructure/template.yml
           validation-role-arn: ${{ env.VALIDATION_ROLE_ARN }}

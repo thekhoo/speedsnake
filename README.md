@@ -205,6 +205,7 @@ GitHub Actions Workflow
 The project uses composite actions to maintain consistency and reduce duplication:
 
 **`deploy-cloudformation`** (`.github/actions/deploy-cloudformation/`)
+
 - Handles AWS CloudFormation stack deployments
 - Features AWS credential configuration via OIDC
 - Validates templates before deployment
@@ -215,11 +216,13 @@ The project uses composite actions to maintain consistency and reduce duplicatio
 The infrastructure is managed using CloudFormation templates in the `infrastructure/` directory:
 
 **1. Deployment Role** (`deployment-role.yml`)
+
 - Creates an IAM role that GitHub Actions assumes to deploy infrastructure
 - Grants permissions for CloudFormation stack management and S3 bucket operations
 - Role ARN: `arn:aws:iam::020844256789:role/github-actions-<owner>-<repo>-deployment`
 
 **2. Infrastructure Stack** (`template.yml`)
+
 - Deploys an S3 bucket for storing speedtest results
 - Bucket naming: `speedsnake-<universe>` (e.g., `speedsnake-production`)
 - Features:
@@ -237,6 +240,7 @@ The pipeline supports multiple deployment environments (universes) using matrix 
 - **Expandable**: Add `development` or `staging` to the matrix in `.github/workflows/deploy-infrastructure.yml`
 
 Each universe gets:
+
 - Separate CloudFormation stacks: `speedsnake-deployment-role-<universe>`, `speedsnake-infrastructure-<universe>`
 - Separate S3 buckets: `speedsnake-<universe>`
 - Universe-tagged Docker images: `latest-production`, `v1.2.3-production`
@@ -250,15 +254,16 @@ Each universe gets:
 
 The pipeline runs automatically on:
 
-| Workflow                  | Trigger                              | Lint/Test | Infrastructure | Docker Build |
-| ------------------------- | ------------------------------------ | --------- | -------------- | ------------ |
-| `ci.yml`                  | Pull request to `main`               | ✓         | ✗              | ✗            |
+| Workflow                    | Trigger                              | Lint/Test | Infrastructure | Docker Build |
+| --------------------------- | ------------------------------------ | --------- | -------------- | ------------ |
+| `ci.yml`                    | Pull request to `main`               | ✓         | ✗              | ✗            |
 | `deploy-infrastructure.yml` | Push to `main` (infra files changed) | ✓         | ✓              | ✓            |
 | `deploy-infrastructure.yml` | Push to `main` (other files)         | ✗         | ✗              | ✗            |
 | `deploy-infrastructure.yml` | Tag push (`v*.*.*`)                  | ✓         | ✗              | ✓            |
 | `deploy-infrastructure.yml` | Manual workflow dispatch             | ✓         | ✓              | ✓            |
 
 **Path filters** (deploy-infrastructure.yml): Infrastructure deployment only runs when these files change:
+
 - `infrastructure/deployment-role.yml`
 - `infrastructure/template.yml`
 - `.github/workflows/deploy-infrastructure.yml`
@@ -268,6 +273,7 @@ The pipeline runs automatically on:
 ### Pipeline Stages
 
 **1. Quality Gates (Parallel)**
+
 - **Lint** (Python 3.13):
   - ruff check - Linting rules (E, F, I, W)
   - ruff format - Code formatting validation
@@ -278,12 +284,14 @@ The pipeline runs automatically on:
 - **Caching**: uv binary, Python interpreters, and dependencies are cached for faster runs (70-90% speed improvement)
 
 **2. Infrastructure Deployment (Sequential, per universe)**
+
 - **Deploy Deployment Role**: Only runs when `deployment-role.yml` changes
 - **Deploy Infrastructure**: Only runs when `template.yml` or workflow changes
 - **Universe Matrix**: Currently deploys to `production` only, easily expandable to `development`, `staging`
 - Requires: All quality gates passing
 
 **3. Docker Build (After infrastructure)**
+
 - Builds production Docker image (multi-stage, non-root user)
 - Multi-platform: `linux/amd64` and `linux/arm64`
 - Pushes to Docker Hub: `thekhoo/speedsnake`
@@ -294,11 +302,11 @@ The pipeline runs automatically on:
 
 Images are tagged based on the trigger type and universe:
 
-| Git Event                  | Docker Tags                                                                     |
-| -------------------------- | ------------------------------------------------------------------------------- |
-| Push to `main`             | `latest-production`, `main-abc123-production` (git sha)                         |
-| Tag `v1.2.3`               | `1.2.3-production`, `1.2-production`, `1-production`, `main-abc123-production` |
-| Manual dispatch from `main` | `latest-production`, `main-abc123-production`                                   |
+| Git Event                   | Docker Tags                                                                    |
+| --------------------------- | ------------------------------------------------------------------------------ |
+| Push to `main`              | `latest-production`, `main-abc123-production` (git sha)                        |
+| Tag `v1.2.3`                | `1.2.3-production`, `1.2-production`, `1-production`, `main-abc123-production` |
+| Manual dispatch from `main` | `latest-production`, `main-abc123-production`                                  |
 
 ### Required GitHub Secrets
 
@@ -312,6 +320,7 @@ Configure these in your repository settings:
 ### AWS Permissions
 
 The deployment role has permissions to:
+
 - Manage CloudFormation stacks with names matching `speedsnake-*`
 - Create and manage S3 buckets with names matching `speedsnake*`
 - No permissions for EC2, Lambda, or other services (principle of least privilege)
@@ -333,6 +342,7 @@ This will deploy infrastructure for all universes in the matrix and build Docker
 To add a new universe (e.g., `development`):
 
 1. Update the matrix in `.github/workflows/deploy-infrastructure.yml` (appears twice - once for `deploy-deployment-role`, once for `deploy-infrastructure`):
+
    ```yaml
    strategy:
      matrix:
@@ -393,6 +403,7 @@ Production uses named Docker volumes:
 All GitHub Actions (composite actions and workflows) follow standardized naming conventions:
 
 ### Input Field Names
+
 - **Always use hyphens** instead of underscores for input field names
 - **Format**: `kebab-case` (lowercase with hyphens)
 - **Examples**:
@@ -400,26 +411,32 @@ All GitHub Actions (composite actions and workflows) follow standardized naming 
   - ❌ `template_paths`, `python_version`, `deployment_role_arn`
 
 ### Rationale
+
 - Consistent with GitHub Actions ecosystem conventions
 - Easier to read and distinguish from variable names
 - Follows YAML/Kubernetes naming patterns
 - Improves maintainability across workflows and composite actions
 
 ### Composite Actions
+
 When creating new composite actions in `.github/actions/`:
+
 1. Define all inputs with hyphenated names
 2. Reference inputs using hyphenated syntax: `${{ inputs.my-input-name }}`
 3. Document input names clearly in the action's `description` field
 
 ### Workflow Files
+
 When calling actions from workflows:
+
 1. Use hyphenated input names in the `with:` block
 2. Keep action invocations consistent across all workflow files
 
 **Example**:
+
 ```yaml
 - name: Validate templates
-  uses: thekhoo/github-actions-shared/.github/actions/validate-cloudformation@main
+  uses: thekhoo/github-actions-shared/.github/actions/aws-cloudformation-validate@main
   with:
     template-paths: infrastructure/deployment-role.yml
     validation-role-arn: ${{ env.VALIDATION_ROLE_ARN }}
