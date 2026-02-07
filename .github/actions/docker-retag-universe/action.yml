@@ -1,0 +1,77 @@
+name: 'Docker Retag for Universe (Conditional)'
+description: 'Conditionally retag a Docker image with universe-specific tags'
+
+inputs:
+  run-docker-retag:
+    description: 'Whether to run the retagging'
+    required: true
+
+  universe:
+    description: 'Deployment universe (e.g., production)'
+    required: true
+
+  source-image:
+    description: 'Full source image tag (e.g., docker.io/user/app:sha-abc123)'
+    required: true
+
+  registry:
+    description: 'Docker registry (e.g., docker.io)'
+    required: true
+
+  username:
+    description: 'Username for the Docker registry'
+    required: true
+
+  password:
+    description: 'Password or token for the Docker registry'
+    required: true
+
+  image-name:
+    description: 'Image name without registry (e.g., myuser/myapp)'
+    required: true
+
+runs:
+  using: 'composite'
+  steps:
+    - name: Skip retagging
+      if: inputs.run-docker-retag != 'true'
+      shell: bash
+      run: echo "Skipping docker retagging (run-docker-retag=${{ inputs.run-docker-retag }})"
+
+    - name: Determine tags
+      if: inputs.run-docker-retag == 'true'
+      id: tags
+      shell: bash
+      run: |
+        TAGS="latest-${{ inputs.universe }}"
+
+        # Add version tags for semver releases
+        if [[ "${{ github.ref }}" == refs/tags/v* ]]; then
+          VERSION="${{ github.ref_name }}"
+          VERSION="${VERSION#v}"  # Remove 'v' prefix
+
+          # Full version (e.g., 1.2.3-production)
+          TAGS="${TAGS} ${VERSION}-${{ inputs.universe }}"
+
+          # Major.minor version (e.g., 1.2-production)
+          MAJOR_MINOR=$(echo "${VERSION}" | cut -d. -f1-2)
+          TAGS="${TAGS} ${MAJOR_MINOR}-${{ inputs.universe }}"
+
+          # Major version (e.g., 1-production)
+          MAJOR=$(echo "${VERSION}" | cut -d. -f1)
+          TAGS="${TAGS} ${MAJOR}-${{ inputs.universe }}"
+        fi
+
+        echo "tags=${TAGS}" >> $GITHUB_OUTPUT
+        echo "Will apply tags: ${TAGS}"
+
+    - name: Retag Docker image
+      if: inputs.run-docker-retag == 'true'
+      uses: thekhoo/github-actions-shared/.github/actions/docker-retag@main
+      with:
+        registry: ${{ inputs.registry }}
+        username: ${{ inputs.username }}
+        password: ${{ inputs.password }}
+        source-image: ${{ inputs.source-image }}
+        target-tags: ${{ steps.tags.outputs.tags }}
+        image-name: ${{ inputs.image-name }}

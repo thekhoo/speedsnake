@@ -1,0 +1,51 @@
+name: 'Deploy Infrastructure (Conditional)'
+description: 'Conditionally deploy the infrastructure CloudFormation stack'
+
+inputs:
+  run-deploy-infrastructure:
+    description: 'Whether to run the deployment'
+    required: true
+
+  universe:
+    description: 'Deployment universe (e.g., production)'
+    required: true
+
+  deployment-role-arn:
+    description: 'ARN of the role to assume for deployment'
+    required: true
+
+  infrastructure-stack-name:
+    description: 'CloudFormation stack name for infrastructure'
+    required: true
+
+  service-name:
+    description: 'Service name for parameters'
+    required: true
+
+  aws-region:
+    description: 'AWS region for deployment'
+    required: false
+    default: 'eu-west-2'
+
+runs:
+  using: 'composite'
+  steps:
+    - name: Skip deployment
+      if: inputs.run-deploy-infrastructure != 'true'
+      shell: bash
+      run: echo "Skipping infrastructure deployment (run-deploy-infrastructure=${{ inputs.run-deploy-infrastructure }})"
+
+    - name: Checkout code
+      if: inputs.run-deploy-infrastructure == 'true'
+      uses: actions/checkout@v4
+
+    - name: Deploy infrastructure CloudFormation stack
+      if: inputs.run-deploy-infrastructure == 'true'
+      uses: ./.github/actions/deploy-cloudformation
+      with:
+        deployment-role-arn: ${{ inputs.deployment-role-arn }}
+        stack-name: ${{ inputs.universe }}-${{ inputs.infrastructure-stack-name }}
+        template-file: infrastructure/template.yml
+        parameters: Universe=${{ inputs.universe }} ServiceName=${{ inputs.service-name }}
+        summary-title: Infrastructure Deployment Summary (${{ inputs.universe }})
+        aws-region: ${{ inputs.aws-region }}
