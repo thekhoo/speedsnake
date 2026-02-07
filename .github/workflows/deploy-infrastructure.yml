@@ -212,8 +212,8 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
 
-      - name: Deploy universe
-        uses: ./.github/actions/deploy-universe
+      - name: Deploy Deployment Role, Infrastructure and Docker
+        uses: thekhoo/github-actions-shared/.github/actions/deploy-infrastructure-and-docker@main
         with:
           # Control flags
           run-deploy-deployment-role: ${{ needs.check-changes.outputs.deployment_role_changed }}
