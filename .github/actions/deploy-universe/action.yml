@@ -55,8 +55,8 @@ inputs:
     required: false
 
   # Docker inputs
-  docker-source-image:
-    description: 'Full source image tag (e.g., docker.io/user/app:sha-abc123)'
+  docker-source-commit-sha:
+    description: 'Commit SHA of the source image (e.g., abc123)'
     required: false
 
   docker-registry:
@@ -126,6 +126,6 @@ runs:
         registry: ${{ inputs.docker-registry }}
         username: ${{ inputs.docker-username }}
         password: ${{ inputs.docker-password }}
-        source-image: ${{ inputs.docker-source-image }}
+        source-commit-sha: ${{ inputs.docker-source-commit-sha }}
         target-tags: ${{ inputs.universe }}
         image-name: ${{ inputs.docker-image-name }}

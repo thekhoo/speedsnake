@@ -169,14 +169,8 @@ jobs:
       needs.lint.result == 'success' &&
       needs.test.result == 'success' &&
       needs.validate-templates.result == 'success'
-    outputs:
-      image-tag: ${{ steps.set-image-tag.outputs.image-tag }}
 
     steps:
-      - name: Set image tag
-        id: set-image-tag
-        run: echo "image-tag=docker.io/${{ env.REGISTRY_IMAGE }}:sha-${{ github.sha }}" >> $GITHUB_OUTPUT
-
       - name: Build and publish Docker image
         id: build
         uses: thekhoo/github-actions-shared/.github/actions/docker-build-and-publish@main
@@ -237,7 +231,7 @@ jobs:
           infrastructure-deployment-role-arn: arn:aws:iam::020844256789:role/${{ env.DEPLOYMENT_IAM_ROLE_NAME }}
           infrastructure-stack-name: ${{ env.INFRASTRUCTURE_STACK_NAME }}
           # Docker inputs
-          docker-source-image: ${{ needs.docker-build-and-publish.outputs.image-tag }}
+          docker-source-commit-sha: ${{ github.sha }}
           docker-registry: docker.io
           docker-username: ${{ secrets.DOCKERHUB_USERNAME }}
           docker-password: ${{ secrets.DOCKERHUB_TOKEN }}
