@@ -204,17 +204,6 @@ GitHub Actions Workflow
 
 The project uses composite actions to maintain consistency and reduce duplication:
 
-**`python-quality-check`** (`.github/actions/python-quality-check/`)
-- Handles all Python quality gate operations
-- Inputs: `python-version` (e.g., "3.13"), `check-type` ("lint" or "test")
-- Features:
-  - uv installation with automatic caching
-  - Python version setup
-  - Dependency installation
-  - Lint checks: ruff check, ruff format, pyrefly type checking
-  - Test execution: pytest with verbose output
-- Used by both `ci.yml` and `deploy-infrastructure.yml` workflows
-
 **`deploy-cloudformation`** (`.github/actions/deploy-cloudformation/`)
 - Handles AWS CloudFormation stack deployments
 - Features AWS credential configuration via OIDC
