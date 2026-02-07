@@ -204,17 +204,6 @@ GitHub Actions Workflow
 
 The project uses composite actions to maintain consistency and reduce duplication:
 
-**`python-quality-check`** (`.github/actions/python-quality-check/`)
-- Handles all Python quality gate operations
-- Inputs: `python-version` (e.g., "3.13"), `check-type` ("lint" or "test")
-- Features:
-  - uv installation with automatic caching
-  - Python version setup
-  - Dependency installation
-  - Lint checks: ruff check, ruff format, pyrefly type checking
-  - Test execution: pytest with verbose output
-- Used by both `ci.yml` and `deploy-infrastructure.yml` workflows
-
 **`deploy-cloudformation`** (`.github/actions/deploy-cloudformation/`)
 - Handles AWS CloudFormation stack deployments
 - Features AWS credential configuration via OIDC
@@ -430,11 +419,11 @@ When calling actions from workflows:
 **Example**:
 ```yaml
 - name: Validate templates
-  uses: ./.github/actions/validate-cloudformation
+  uses: thekhoo/github-actions-shared/.github/actions/validate-cloudformation@main
   with:
     template-paths: infrastructure/deployment-role.yml
     validation-role-arn: ${{ env.VALIDATION_ROLE_ARN }}
-    python-version: "3.13"
+    aws-region: ${{ env.AWS_REGION }}
 ```
 
 ## Contributing

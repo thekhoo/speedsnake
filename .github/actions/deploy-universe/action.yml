@@ -1,0 +1,164 @@
+name: 'Deploy Universe'
+description: 'Unified deployment action for deployment role, infrastructure, and docker retagging'
+
+inputs:
+  # Control flags
+  run-deploy-deployment-role:
+    description: 'Whether to deploy the deployment role'
+    required: true
+    default: 'false'
+
+  run-deploy-infrastructure:
+    description: 'Whether to deploy the infrastructure'
+    required: true
+    default: 'false'
+
+  run-docker-retag:
+    description: 'Whether to retag the Docker image'
+    required: true
+    default: 'false'
+
+  # Common inputs
+  universe:
+    description: 'Deployment universe (e.g., production)'
+    required: true
+
+  service-name:
+    description: 'Service name for parameters'
+    required: true
+
+  aws-region:
+    description: 'AWS region for deployment'
+    required: false
+    default: 'eu-west-2'
+
+  # Deployment role inputs
+  create-deployment-role-arn:
+    description: 'ARN of the role to assume for creating deployment role'
+    required: false
+
+  deployment-role-stack-name:
+    description: 'CloudFormation stack name for deployment role'
+    required: false
+
+  deployment-iam-role-name:
+    description: 'IAM role name for deployment'
+    required: false
+
+  # Infrastructure inputs
+  infrastructure-deployment-role-arn:
+    description: 'ARN of the deployment role to use for infrastructure'
+    required: false
+
+  infrastructure-stack-name:
+    description: 'CloudFormation stack name for infrastructure'
+    required: false
+
+  # Docker inputs
+  docker-source-image:
+    description: 'Full source image tag (e.g., docker.io/user/app:sha-abc123)'
+    required: false
+
+  docker-registry:
+    description: 'Docker registry (e.g., docker.io)'
+    required: false
+
+  docker-username:
+    description: 'Username for the Docker registry'
+    required: false
+
+  docker-password:
+    description: 'Password or token for the Docker registry'
+    required: false
+
+  docker-image-name:
+    description: 'Image name without registry (e.g., myuser/myapp)'
+    required: false
+
+runs:
+  using: 'composite'
+  steps:
+    # Checkout if any deployment stage is running
+    - name: Checkout code
+      if: |
+        inputs.run-deploy-deployment-role == 'true' ||
+        inputs.run-deploy-infrastructure == 'true'
+      uses: actions/checkout@v4
+
+    # ===== DEPLOYMENT ROLE STAGE =====
+    - name: Skip deployment role
+      if: inputs.run-deploy-deployment-role != 'true'
+      shell: bash
+      run: echo "⏭️  Skipping deployment role deployment"
+
+    - name: Deploy deployment role CloudFormation stack
+      if: inputs.run-deploy-deployment-role == 'true'
+      uses: ./.github/actions/deploy-cloudformation
+      with:
+        deployment-role-arn: ${{ inputs.create-deployment-role-arn }}
+        stack-name: ${{ inputs.universe }}-${{ inputs.deployment-role-stack-name }}
+        template-file: infrastructure/deployment-role.yml
+        parameters: Universe=${{ inputs.universe }} ServiceName=${{ inputs.service-name }} DeploymentRoleName=${{ inputs.deployment-iam-role-name }}
+        summary-title: Deployment Role Created (${{ inputs.universe }})
+        aws-region: ${{ inputs.aws-region }}
+
+    # ===== INFRASTRUCTURE STAGE =====
+    - name: Skip infrastructure deployment
+      if: inputs.run-deploy-infrastructure != 'true'
+      shell: bash
+      run: echo "⏭️  Skipping infrastructure deployment"
+
+    - name: Deploy infrastructure CloudFormation stack
+      if: inputs.run-deploy-infrastructure == 'true'
+      uses: ./.github/actions/deploy-cloudformation
+      with:
+        deployment-role-arn: ${{ inputs.infrastructure-deployment-role-arn }}
+        stack-name: ${{ inputs.universe }}-${{ inputs.infrastructure-stack-name }}
+        template-file: infrastructure/template.yml
+        parameters: Universe=${{ inputs.universe }} ServiceName=${{ inputs.service-name }}
+        summary-title: Infrastructure Deployment Summary (${{ inputs.universe }})
+        aws-region: ${{ inputs.aws-region }}
+
+    # ===== DOCKER RETAG STAGE =====
+    - name: Skip docker retagging
+      if: inputs.run-docker-retag != 'true'
+      shell: bash
+      run: echo "⏭️  Skipping docker retagging"
+
+    - name: Determine docker tags
+      if: inputs.run-docker-retag == 'true'
+      id: tags
+      shell: bash
+      run: |
+        TAGS="latest-${{ inputs.universe }}"
+
+        # Add version tags for semver releases
+        if [[ "${{ github.ref }}" == refs/tags/v* ]]; then
+          VERSION="${{ github.ref_name }}"
+          VERSION="${VERSION#v}"  # Remove 'v' prefix
+
+          # Full version (e.g., 1.2.3-production)
+          TAGS="${TAGS} ${VERSION}-${{ inputs.universe }}"
+
+          # Major.minor version (e.g., 1.2-production)
+          MAJOR_MINOR=$(echo "${VERSION}" | cut -d. -f1-2)
+          TAGS="${TAGS} ${MAJOR_MINOR}-${{ inputs.universe }}"
+
+          # Major version (e.g., 1-production)
+          MAJOR=$(echo "${VERSION}" | cut -d. -f1)
+          TAGS="${TAGS} ${MAJOR}-${{ inputs.universe }}"
+        fi
+
+        echo "tags=${TAGS}" >> $GITHUB_OUTPUT
+        echo "✅ Will apply tags: ${TAGS}"
+
+    - name: Retag Docker image
+      if: inputs.run-docker-retag == 'true'
+      uses: thekhoo/github-actions-shared/.github/actions/docker-retag@main
+      with:
+        registry: ${{ inputs.docker-registry }}
+        username: ${{ inputs.docker-username }}
+        password: ${{ inputs.docker-password }}
+        source-image: ${{ inputs.docker-source-image }}
+        target-tags: ${{ steps.tags.outputs.tags }}
+        image-name: ${{ inputs.docker-image-name }}
