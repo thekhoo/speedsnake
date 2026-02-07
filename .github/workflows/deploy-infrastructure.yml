@@ -198,7 +198,8 @@ jobs:
   deploy:
     name: Deploy (${{ matrix.universe }})
     runs-on: ubuntu-latest
-    needs: [lint, test, validate-templates, check-changes, docker-build-and-publish]
+    needs:
+      [lint, test, validate-templates, check-changes, docker-build-and-publish]
     if: |
       needs.lint.result == 'success' &&
       needs.test.result == 'success' &&
@@ -210,13 +211,16 @@ jobs:
         universe: [production]
 
     steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
       - name: Deploy universe
         uses: ./.github/actions/deploy-universe
         with:
           # Control flags
           run-deploy-deployment-role: ${{ needs.check-changes.outputs.deployment_role_changed }}
           run-deploy-infrastructure: ${{ needs.check-changes.outputs.infrastructure_changed }}
-          run-docker-retag: 'true'
+          run-docker-retag: "true"
           # Common inputs
           universe: ${{ matrix.universe }}
           service-name: ${{ env.SERVICE_NAME }}

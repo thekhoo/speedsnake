@@ -78,12 +78,6 @@ inputs:
 runs:
   using: 'composite'
   steps:
-    # Checkout if any deployment stage is running
-    - name: Checkout code
-      if: |
-        inputs.run-deploy-deployment-role == 'true' ||
-        inputs.run-deploy-infrastructure == 'true'
-      uses: actions/checkout@v4
 
     # ===== DEPLOYMENT ROLE STAGE =====
     - name: Skip deployment role
