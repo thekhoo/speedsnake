@@ -200,17 +200,6 @@ GitHub Actions Workflow
 └── Build & Push Docker Image
 ```
 
-### Reusable Actions
-
-The project uses composite actions to maintain consistency and reduce duplication:
-
-**`deploy-cloudformation`** (`.github/actions/deploy-cloudformation/`)
-
-- Handles AWS CloudFormation stack deployments
-- Features AWS credential configuration via OIDC
-- Validates templates before deployment
-- Provides deployment summaries with stack outputs
-
 ### AWS Infrastructure
 
 The infrastructure is managed using CloudFormation templates in the `infrastructure/` directory:
