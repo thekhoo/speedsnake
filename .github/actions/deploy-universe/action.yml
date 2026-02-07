@@ -119,33 +119,6 @@ runs:
       shell: bash
       run: echo "⏭️  Skipping docker retagging"
 
-    - name: Determine docker tags
-      if: inputs.run-docker-retag == 'true'
-      id: tags
-      shell: bash
-      run: |
-        TAGS="latest-${{ inputs.universe }}"
-
-        # Add version tags for semver releases
-        if [[ "${{ github.ref }}" == refs/tags/v* ]]; then
-          VERSION="${{ github.ref_name }}"
-          VERSION="${VERSION#v}"  # Remove 'v' prefix
-
-          # Full version (e.g., 1.2.3-production)
-          TAGS="${TAGS} ${VERSION}-${{ inputs.universe }}"
-
-          # Major.minor version (e.g., 1.2-production)
-          MAJOR_MINOR=$(echo "${VERSION}" | cut -d. -f1-2)
-          TAGS="${TAGS} ${MAJOR_MINOR}-${{ inputs.universe }}"
-
-          # Major version (e.g., 1-production)
-          MAJOR=$(echo "${VERSION}" | cut -d. -f1)
-          TAGS="${TAGS} ${MAJOR}-${{ inputs.universe }}"
-        fi
-
-        echo "tags=${TAGS}" >> $GITHUB_OUTPUT
-        echo "✅ Will apply tags: ${TAGS}"
-
     - name: Retag Docker image
       if: inputs.run-docker-retag == 'true'
       uses: thekhoo/github-actions-shared/.github/actions/docker-retag@main
@@ -154,5 +127,5 @@ runs:
         username: ${{ inputs.docker-username }}
         password: ${{ inputs.docker-password }}
         source-image: ${{ inputs.docker-source-image }}
-        target-tags: ${{ steps.tags.outputs.tags }}
+        target-tags: ${{ inputs.universe }}
         image-name: ${{ inputs.docker-image-name }}
