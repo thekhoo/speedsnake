@@ -170,9 +170,13 @@ jobs:
       needs.test.result == 'success' &&
       needs.validate-templates.result == 'success'
     outputs:
-      image-tag: ${{ steps.build.outputs.image-tag }}
+      image-tag: ${{ steps.set-image-tag.outputs.image-tag }}
 
     steps:
+      - name: Set image tag
+        id: set-image-tag
+        run: echo "image-tag=docker.io/${{ env.REGISTRY_IMAGE }}:sha-${{ github.sha }}" >> $GITHUB_OUTPUT
+
       - name: Build and publish Docker image
         id: build
         uses: thekhoo/github-actions-shared/.github/actions/docker-build-and-publish@main
