@@ -419,11 +419,11 @@ When calling actions from workflows:
 **Example**:
 ```yaml
 - name: Validate templates
-  uses: ./.github/actions/validate-cloudformation
+  uses: thekhoo/github-actions-shared/.github/actions/validate-cloudformation@main
   with:
     template-paths: infrastructure/deployment-role.yml
     validation-role-arn: ${{ env.VALIDATION_ROLE_ARN }}
-    python-version: "3.13"
+    aws-region: ${{ env.AWS_REGION }}
 ```
 
 ## Contributing
