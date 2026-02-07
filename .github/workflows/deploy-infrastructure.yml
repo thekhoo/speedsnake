@@ -8,6 +8,7 @@ on:
       - "infrastructure/deployment-role.yml"
       - "infrastructure/template.yml"
       - ".github/workflows/deploy-infrastructure.yml"
+      - "speedtest/**"
     tags:
       - "v*.*.*"
   workflow_dispatch:
