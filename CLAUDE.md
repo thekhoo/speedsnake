@@ -63,7 +63,7 @@ docker build -f docker/production/Dockerfile -t speedsnake:latest .
 ### Run directly
 
 ```bash
-uv run python -m speedtest.handlers.loop
+uv run python -m speedsnake.handlers.loop
 ```
 
 ### Testing
@@ -77,8 +77,8 @@ uv run pytest -k "test_name"      # run tests matching pattern
 ### Linting, formatting, and type checking
 
 ```bash
-uv run ruff check speedtest/ tests/      # lint
-uv run ruff format speedtest/ tests/     # format
+uv run ruff check speedsnake/ tests/      # lint
+uv run ruff format speedsnake/ tests/     # format
 uv run pyrefly check                     # type check
 ```
 
@@ -92,14 +92,16 @@ uv sync --group development  # with dev deps
 ## Architecture
 
 ```
-speedtest/
+speedsnake/
 ├── handlers/loop.py    # Entry point - polling loop with @loop decorator
-├── speedtest.py        # Wrapper around speedtest-cli binary (subprocess)
+├── service/
+│   ├── speedtest.py    # Wrapper around speedtest-cli binary (subprocess)
+│   └── environment.py  # Environment variable configuration
 ├── data/
 │   ├── results.py      # CSV file persistence with Hive partitioning
 │   └── parquet.py      # Parquet conversion and CSV cleanup
-├── environment.py      # Environment variable configuration
-└── logging.py          # JSON logging with rotating file handler
+└── core/
+    └── logging.py      # JSON logging with rotating file handler
 ```
 
 ### Data Flow
