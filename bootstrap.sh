@@ -22,4 +22,4 @@ export COMMIT_HASH
 export SLEEP_SECONDS=600 # 10 minutes
 
 # run the processing loop using uv
-exec uv run python -m speedtest.handlers.loop
+exec uv run python -m speedsnake.handlers.loop
