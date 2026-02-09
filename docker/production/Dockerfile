@@ -36,7 +36,7 @@ RUN useradd -m -u 1000 speedtest && \
 COPY --from=builder --chown=speedtest:speedtest /app/.venv /app/.venv
 
 # Copy application code
-COPY --chown=speedtest:speedtest speedtest/ /app/speedtest/
+COPY --chown=speedtest:speedtest speedsnake/ /app/speedsnake/
 
 # Set environment variables
 ENV PATH="/app/.venv/bin:$PATH" \
@@ -53,4 +53,4 @@ HEALTHCHECK --interval=5m --timeout=10s --start-period=30s --retries=3 \
     CMD python -c "import pathlib; import sys; sys.exit(0 if pathlib.Path('/app/logs/speedtest.log').exists() else 1)"
 
 # Run the application
-CMD ["python", "-m", "speedtest.handlers.loop"]
+CMD ["python", "-m", "speedsnake.handlers.loop"]

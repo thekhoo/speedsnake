@@ -54,7 +54,7 @@ cd speedsnake
 
 # Or run directly
 uv sync
-uv run python -m speedtest.handlers.loop
+uv run python -m speedsnake.handlers.loop
 ```
 
 ## Configuration
@@ -129,14 +129,16 @@ Mbps = bandwidth * 8 / 1024 / 1024
 ## Architecture
 
 ```
-speedtest/
+speedsnake/
 ├── handlers/loop.py    # Entry point - polling loop with @loop decorator
-├── speedtest.py        # Wrapper around speedtest-cli (subprocess)
+├── service/
+│   ├── speedtest.py    # Wrapper around speedtest-cli (subprocess)
+│   └── environment.py  # Environment variable configuration
 ├── data/
 │   ├── results.py      # CSV persistence with Hive partitioning
 │   └── parquet.py      # Parquet conversion and CSV cleanup
-├── environment.py      # Environment variable configuration
-└── logging.py          # JSON logging with rotating file handler
+└── core/
+    └── logging.py      # JSON logging with rotating file handler
 ```
 
 ## Development
@@ -157,11 +159,11 @@ uv sync --group development
 uv run pytest
 
 # Lint and format
-uv run ruff check speedtest/ tests/
-uv run ruff format speedtest/ tests/
+uv run ruff check speedsnake/ tests/
+uv run ruff format speedsnake/ tests/
 
 # Type checking
-uv run pyrefly check speedtest/ tests/
+uv run pyrefly check
 ```
 
 ### Docker Development
@@ -439,9 +441,9 @@ When calling actions from workflows:
 3. Use conventional commits format
 4. Run all quality checks before committing:
    ```bash
-   uv run ruff check speedtest/ tests/
-   uv run ruff format speedtest/ tests/
-   uv run pyrefly check speedtest/ tests/
+   uv run ruff check speedsnake/ tests/
+   uv run ruff format speedsnake/ tests/
+   uv run pyrefly check
    uv run pytest -v
    ```
 5. Submit a pull request

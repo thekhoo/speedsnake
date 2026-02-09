@@ -2,7 +2,7 @@
 
 import typing
 
-from speedtest.service.speedtest import (
+from speedsnake.service.speedtest import (
     SpeedtestClientResponse,
     SpeedtestResponse,
     SpeedtestServerResponse,

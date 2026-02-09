@@ -3,7 +3,7 @@ import logging
 
 import pytest
 
-from speedtest.core.logging import JSONFormatter, setup_logging
+from speedsnake.core.logging import JSONFormatter, setup_logging
 
 
 class TestJSONFormatter:

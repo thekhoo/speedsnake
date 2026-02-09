@@ -33,10 +33,10 @@ select = ["E", "F", "I", "W"]
 ignore = []
 
 [tool.ruff.lint.isort]
-known-first-party = ["speedtest"]
+known-first-party = ["speedsnake"]
 
 [tool.pyrefly]
-project_includes = ["speedtest"]
+project_includes = ["speedsnake"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]

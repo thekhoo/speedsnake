@@ -30,4 +30,4 @@ ENV PATH="/app/.venv/bin:$PATH" \
 # Note: Application code will be mounted as a volume
 # This allows for hot-reload during development
 
-CMD ["python", "-m", "speedtest.handlers.loop"]
+CMD ["python", "-m", "speedsnake.handlers.loop"]

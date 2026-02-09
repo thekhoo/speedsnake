@@ -1,6 +1,6 @@
 import csv
 
-from speedtest.data import results
+from speedsnake.data import results
 from tests.conftest import make_speedtest_response
 
 
