@@ -14,7 +14,7 @@ services:
       UPLOAD_DIR: /app/uploads
     volumes:
       # Mount source code for hot-reload
-      - ../../speedtest:/app/speedtest:ro
+      - ../../speedsnake:/app/speedsnake:ro
       # Mount data directories
       - ../../results:/app/results
       - ../../logs:/app/logs
@@ -22,4 +22,4 @@ services:
       # Mount tests for running in container
       - ../../tests:/app/tests:ro
     # Override command for development (uses uv for hot-reload support)
-    command: ["python", "-m", "speedtest.handlers.loop"]
+    command: ["python", "-m", "speedsnake.handlers.loop"]
