@@ -23,7 +23,7 @@ jobs:
         uses: thekhoo/github-actions-shared/.github/actions/python-linting@main
         with:
           python-version: 3.13
-          directories: speedtest/ tests/
+          directories: speedsnake/ tests/
           use-ruff: true
           use-pyrefly: true
 

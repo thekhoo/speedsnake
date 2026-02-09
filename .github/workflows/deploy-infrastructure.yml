@@ -8,7 +8,7 @@ on:
       - "infrastructure/deployment-role.yml"
       - "infrastructure/template.yml"
       - ".github/workflows/deploy-infrastructure.yml"
-      - "speedtest/**"
+      - "speedsnake/**"
     tags:
       - "v*.*.*"
   workflow_dispatch:
@@ -35,7 +35,7 @@ jobs:
         uses: thekhoo/github-actions-shared/.github/actions/python-linting@main
         with:
           python-version: 3.13
-          directories: speedtest/ tests/
+          directories: speedsnake/ tests/
           use-ruff: true
           use-pyrefly: true
 
