@@ -3,11 +3,11 @@ import time
 from datetime import datetime
 from functools import wraps
 
-import speedtest.core.logging as speedtest_logging
-import speedtest.data.parquet as parquet
-import speedtest.data.results as results
-import speedtest.service.environment as env
-import speedtest.service.speedtest as speedtest
+import speedsnake.core.logging as speedtest_logging
+import speedsnake.data.parquet as parquet
+import speedsnake.data.results as results
+import speedsnake.service.environment as env
+import speedsnake.service.speedtest as speedtest
 
 logger = logging.getLogger(__name__)
 

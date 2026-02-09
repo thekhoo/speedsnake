@@ -1,7 +1,7 @@
 import duckdb
 import pytest
 
-from speedtest.data import parquet
+from speedsnake.data import parquet
 
 
 class TestGetNextParquetNumber:

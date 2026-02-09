@@ -4,7 +4,7 @@ import pathlib
 from datetime import datetime
 from typing import Any
 
-from speedtest.service.speedtest import SpeedtestResponse
+from speedsnake.service.speedtest import SpeedtestResponse
 
 logger = logging.getLogger(__name__)
 

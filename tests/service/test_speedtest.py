@@ -3,8 +3,8 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
-from speedtest.service import speedtest
-from speedtest.service.speedtest import SpeedtestResponse, round_floats_to_ints
+from speedsnake.service import speedtest
+from speedsnake.service.speedtest import SpeedtestResponse, round_floats_to_ints
 from tests.conftest import make_speedtest_response
 
 

@@ -2,7 +2,7 @@ from unittest.mock import patch
 
 import pytest
 
-from speedtest.handlers import loop
+from speedsnake.handlers import loop
 
 
 class TestSleep:
@@ -28,7 +28,7 @@ class TestLoopDecorator:
             if call_count >= 3:
                 raise KeyboardInterrupt()
 
-        with patch("speedtest.handlers.loop.sleep"):
+        with patch("speedsnake.handlers.loop.sleep"):
             with pytest.raises(KeyboardInterrupt):
                 test_func()
 
@@ -45,7 +45,7 @@ class TestLoopDecorator:
                 raise ValueError("Test error")
             raise KeyboardInterrupt()
 
-        with patch("speedtest.handlers.loop.sleep"):
+        with patch("speedsnake.handlers.loop.sleep"):
             with pytest.raises(KeyboardInterrupt):
                 test_func()
 
@@ -61,8 +61,8 @@ class TestLoopDecorator:
             if call_count >= 2:
                 raise KeyboardInterrupt()
 
-        with patch("speedtest.handlers.loop.sleep") as mock_sleep:
-            with patch("speedtest.service.environment.get_sleep_seconds", return_value=60):
+        with patch("speedsnake.handlers.loop.sleep") as mock_sleep:
+            with patch("speedsnake.service.environment.get_sleep_seconds", return_value=60):
                 with pytest.raises(KeyboardInterrupt):
                     test_func()
 
@@ -104,9 +104,9 @@ class TestRun:
                 raise KeyboardInterrupt()
             return mock_speedtest_response
 
-        with patch("speedtest.service.speedtest.run", side_effect=mock_speedtest_run):
-            with patch("speedtest.handlers.loop.sleep"):
-                with patch("speedtest.handlers.loop.check_and_convert_complete_days"):
+        with patch("speedsnake.service.speedtest.run", side_effect=mock_speedtest_run):
+            with patch("speedsnake.handlers.loop.sleep"):
+                with patch("speedsnake.handlers.loop.check_and_convert_complete_days"):
                     with pytest.raises(KeyboardInterrupt):
                         loop.run()
 
@@ -116,11 +116,11 @@ class TestRun:
 
 class TestMain:
     def test_main_handles_keyboard_interrupt(self):
-        with patch("speedtest.handlers.loop.run", side_effect=KeyboardInterrupt()):
+        with patch("speedsnake.handlers.loop.run", side_effect=KeyboardInterrupt()):
             loop.main()
 
     def test_main_calls_run(self):
-        with patch("speedtest.handlers.loop.run", side_effect=KeyboardInterrupt()) as mock_run:
+        with patch("speedsnake.handlers.loop.run", side_effect=KeyboardInterrupt()) as mock_run:
             loop.main()
             mock_run.assert_called_once()
 
@@ -128,8 +128,8 @@ class TestMain:
 class TestCheckAndConvertCompleteDays:
     def test_no_complete_days_returns_early(self, monkeypatch):
         monkeypatch.setenv("RESULT_DIR", "./results")
-        with patch("speedtest.data.parquet.get_complete_days", return_value=[]):
-            with patch("speedtest.data.parquet.convert_day_to_parquet") as mock_convert:
+        with patch("speedsnake.data.parquet.get_complete_days", return_value=[]):
+            with patch("speedsnake.data.parquet.convert_day_to_parquet") as mock_convert:
                 loop.check_and_convert_complete_days()
                 mock_convert.assert_not_called()
 
@@ -138,8 +138,8 @@ class TestCheckAndConvertCompleteDays:
         monkeypatch.setenv("UPLOAD_DIR", str(tmp_path / "uploads"))
         monkeypatch.setenv("SPEEDTEST_LOCATION_UUID", "test-uuid")
 
-        with patch("speedtest.data.parquet.get_complete_days", return_value=["2026-01-20"]):
-            with patch("speedtest.data.parquet.convert_day_to_parquet") as mock_convert:
+        with patch("speedsnake.data.parquet.get_complete_days", return_value=["2026-01-20"]):
+            with patch("speedsnake.data.parquet.convert_day_to_parquet") as mock_convert:
                 mock_convert.return_value = tmp_path / "uploads" / "year=2026" / "month=01" / "day=20" / "test.parquet"
                 loop.check_and_convert_complete_days()
 
@@ -153,8 +153,8 @@ class TestCheckAndConvertCompleteDays:
         monkeypatch.setenv("UPLOAD_DIR", str(tmp_path / "uploads"))
         monkeypatch.setenv("SPEEDTEST_LOCATION_UUID", "test-uuid")
 
-        with patch("speedtest.data.parquet.get_complete_days", return_value=["2026-01-20", "2026-01-21"]):
-            with patch("speedtest.data.parquet.convert_day_to_parquet") as mock_convert:
+        with patch("speedsnake.data.parquet.get_complete_days", return_value=["2026-01-20", "2026-01-21"]):
+            with patch("speedsnake.data.parquet.convert_day_to_parquet") as mock_convert:
                 mock_convert.return_value = tmp_path / "uploads" / "test.parquet"
                 loop.check_and_convert_complete_days()
 
@@ -164,8 +164,8 @@ class TestCheckAndConvertCompleteDays:
         monkeypatch.setenv("RESULT_DIR", str(tmp_path / "results"))
         monkeypatch.setenv("UPLOAD_DIR", str(tmp_path / "uploads"))
 
-        with patch("speedtest.data.parquet.get_complete_days", return_value=["2026-01-20", "2026-01-21"]):
-            with patch("speedtest.data.parquet.convert_day_to_parquet") as mock_convert:
+        with patch("speedsnake.data.parquet.get_complete_days", return_value=["2026-01-20", "2026-01-21"]):
+            with patch("speedsnake.data.parquet.convert_day_to_parquet") as mock_convert:
                 # First call fails, second succeeds
                 mock_convert.side_effect = [ValueError("Test error"), tmp_path / "test.parquet"]
                 loop.check_and_convert_complete_days()
@@ -185,8 +185,8 @@ class TestLoopDecoratorWithParquetConversion:
             if call_count >= 2:
                 raise KeyboardInterrupt()
 
-        with patch("speedtest.handlers.loop.sleep"):
-            with patch("speedtest.handlers.loop.check_and_convert_complete_days") as mock_convert:
+        with patch("speedsnake.handlers.loop.sleep"):
+            with patch("speedsnake.handlers.loop.check_and_convert_complete_days") as mock_convert:
                 with pytest.raises(KeyboardInterrupt):
                     test_func()
 
@@ -203,8 +203,10 @@ class TestLoopDecoratorWithParquetConversion:
             if call_count >= 3:
                 raise KeyboardInterrupt()
 
-        with patch("speedtest.handlers.loop.sleep"):
-            with patch("speedtest.handlers.loop.check_and_convert_complete_days", side_effect=ValueError("Test error")):
+        with patch("speedsnake.handlers.loop.sleep"):
+            with patch(
+                "speedsnake.handlers.loop.check_and_convert_complete_days", side_effect=ValueError("Test error")
+            ):
                 with pytest.raises(KeyboardInterrupt):
                     test_func()
 
