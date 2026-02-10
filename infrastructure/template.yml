@@ -79,16 +79,6 @@ Resources:
       Tags:
         application: speedsnake
 
-  SsmSpeedtestLocationUuid:
-    Type: AWS::SSM::Parameter
-    Properties:
-      Name: !Sub '/${Universe}/${ServiceName}/app/speedtest_location_uuid'
-      Type: String
-      Value: !Ref SpeedtestLocationUuid
-      Description: Location identifier for Hive partitioning
-      Tags:
-        application: speedsnake
-
   RaspberryPiApplicationRole:
     Type: AWS::IAM::Role
     Properties:
@@ -109,7 +99,9 @@ Resources:
               - Effect: Allow
                 Action:
                   - s3:PutObject
+                  - s3:PutObjectTagging
                   - s3:GetObject
+                  - s3:GetObjectTagging
                   - s3:ListBucket
                 Resource:
                   - !GetAtt ServiceBucket.Arn
@@ -119,6 +111,17 @@ Resources:
           Value: speedsnake
         - Key: ManagedBy
           Value: CloudFormation
+  
+  RaspberryPiApplicationRoleSSM:
+    Type: AWS::SSM::Parameter
+    Properties:
+      Name: !Sub '/${Universe}/${ServiceName}/app/raspberry-pi-role-arn'
+      Type: String
+      Value: !GetAtt RaspberryPiApplicationRole.Arn
+      Description: ARN of the IAM role for Raspberry Pi to assume
+      Tags:
+        application: speedsnake
+        allow-raspberry-pi-access: true
 
 Outputs:
   BucketName:
