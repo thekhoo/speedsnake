@@ -1,0 +1,43 @@
+[project]
+name = "speedsnake"
+version = "0.1.0"
+description = "I am tired of always checking my internet speed..."
+authors = [
+  { name = "Christopher Khoo", email = "khoojinnwei@gmail.com" },
+]
+dependencies = [
+  "duckdb>=1.0.0",
+]
+requires-python = ">=3.13"
+
+[project.urls]
+repository = "https://github.com/thekhoo/speedsnake"
+
+[dependency-groups]
+dev = [
+  'cfn-lint',
+  'pytest',
+  'pytest-sugar',
+  'pyrefly',
+  'ruff',
+]
+
+[tool.setuptools.packages.find]
+exclude = ["tests"]
+
+[tool.ruff]
+line-length = 120
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "W"]
+ignore = []
+
+[tool.ruff.lint.isort]
+known-first-party = ["speedsnake"]
+
+[tool.pyrefly]
+project_includes = ["speedsnake"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["."]

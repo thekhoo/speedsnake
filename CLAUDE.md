@@ -281,6 +281,12 @@ Production setup uses named Docker volumes:
 - Explain _why_ changes are suggested
 - Always use full names when describing the universe (development or production)
 
+## IaaC Instructions for AWS
+
+- Always use SAM templates where possible
+- Use principle of least permission to grant permissions to resources
+- Where possible, use ResourceTag based permissions
+
 ## Coding Preferences
 
 - Prefer small, composable functions where possible
