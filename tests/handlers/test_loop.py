@@ -208,7 +208,7 @@ class TestCheckAndUploadParquets:
     def test_uploads_multiple_parquets(self, tmp_path, monkeypatch):
         upload_dir = tmp_path / "uploads"
         for i in range(3):
-            parquet_dir = upload_dir / f"location=abc" / "year=2026" / "month=02" / f"day=0{i+1}"
+            parquet_dir = upload_dir / "location=abc" / "year=2026" / "month=02" / f"day=0{i + 1}"
             parquet_dir.mkdir(parents=True)
             (parquet_dir / "speedtest_001.parquet").write_bytes(b"data")
 
@@ -270,7 +270,7 @@ class TestCheckAndUploadParquets:
     def test_continues_after_single_failure(self, tmp_path, monkeypatch):
         upload_dir = tmp_path / "uploads"
         for i in range(2):
-            parquet_dir = upload_dir / "location=abc" / "year=2026" / "month=02" / f"day=0{i+1}"
+            parquet_dir = upload_dir / "location=abc" / "year=2026" / "month=02" / f"day=0{i + 1}"
             parquet_dir.mkdir(parents=True)
             (parquet_dir / "speedtest_001.parquet").write_bytes(b"data")
 
@@ -294,7 +294,7 @@ class TestCheckAndUploadParquets:
     def test_reads_config_from_ssm_once(self, tmp_path, monkeypatch):
         upload_dir = tmp_path / "uploads"
         for i in range(3):
-            parquet_dir = upload_dir / "location=abc" / "year=2026" / "month=02" / f"day=0{i+1}"
+            parquet_dir = upload_dir / "location=abc" / "year=2026" / "month=02" / f"day=0{i + 1}"
             parquet_dir.mkdir(parents=True)
             (parquet_dir / "speedtest_001.parquet").write_bytes(b"data")
 

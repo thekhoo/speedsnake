@@ -1,8 +1,5 @@
 import hashlib
-import pathlib
 from unittest.mock import MagicMock, patch
-
-import pytest
 
 from speedsnake.service import s3
 
@@ -34,9 +31,7 @@ class TestConstructS3Key:
 
     def test_preserves_hive_partitions(self, tmp_path):
         uploads_dir = tmp_path / "uploads"
-        parquet_path = (
-            uploads_dir / "location=abc" / "year=2026" / "month=02" / "day=09" / "speedtest_001.parquet"
-        )
+        parquet_path = uploads_dir / "location=abc" / "year=2026" / "month=02" / "day=09" / "speedtest_001.parquet"
 
         key = s3.construct_s3_key(parquet_path, uploads_dir)
         assert key == "results/location=abc/year=2026/month=02/day=09/speedtest_001.parquet"
@@ -68,7 +63,7 @@ class TestAssumeRole:
         }
 
         with patch("boto3.client", return_value=mock_sts):
-            with patch("boto3.Session") as mock_session:
+            with patch("boto3.Session"):
                 s3.assume_role()
 
                 mock_sts.assume_role.assert_called_once_with(
