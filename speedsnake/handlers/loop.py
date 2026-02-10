@@ -8,6 +8,7 @@ import speedsnake.data.parquet as parquet
 import speedsnake.data.results as results
 import speedsnake.service.environment as env
 import speedsnake.service.speedtest as speedtest
+import speedsnake.service.upload as upload
 
 logger = logging.getLogger(__name__)
 
@@ -52,6 +53,33 @@ def check_and_convert_complete_days() -> None:
             logger.error(f"Failed to convert {day_str}: {e}")
 
 
+def check_and_upload_parquets() -> None:
+    """Upload all parquet files in uploads/ to S3 with checksum verification."""
+    upload_dir = env.get_upload_dir()
+    parquet_files = list(upload_dir.rglob("*.parquet"))
+
+    if not parquet_files:
+        logger.debug("No parquet files to upload")
+        return
+
+    logger.info(f"Found {len(parquet_files)} parquet files to upload")
+
+    for parquet_path in parquet_files:
+        try:
+            local_md5 = upload.calculate_md5(parquet_path)
+            etag = upload.upload_parquet_file(parquet_path)
+
+            if not upload.verify_upload_checksum(local_md5, etag):
+                logger.error(f"Checksum mismatch for {parquet_path}, preserving local file")
+                continue
+
+            parquet_path.unlink()
+            logger.info(f"deleted local file after successful upload: {parquet_path}")
+
+        except Exception as e:
+            logger.error(f"Failed to upload {parquet_path}: {e}")
+
+
 def loop(func):
     @wraps(func)
     def wrapper(*args, **kwargs):
@@ -65,6 +93,12 @@ def loop(func):
                     check_and_convert_complete_days()
                 except Exception as e:
                     logger.error(f"Parquet conversion error: {e}")
+
+                try:
+                    check_and_upload_parquets()
+                except Exception as e:
+                    logger.error(f"S3 upload error: {e}")
+
                 sleep(env.get_sleep_seconds())
 
     return wrapper

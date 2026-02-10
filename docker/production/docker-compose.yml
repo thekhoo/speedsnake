@@ -13,7 +13,12 @@ services:
 
     environment:
       SLEEP_SECONDS: ${SLEEP_SECONDS:-600}  # Default: 10 minutes
-      SPEEDTEST_LOCATION_UUID: ${SPEEDTEST_LOCATION_UUID:-unknown-location}
+      # AWS bootstrap (required to assume role and access SSM)
+      AWS_REGION: ${AWS_REGION:-eu-west-2}
+      AWS_ROLE_ARN: ${AWS_ROLE_ARN}
+      SSM_PATH_PREFIX: ${SSM_PATH_PREFIX}
+      AWS_ACCESS_KEY_ID: ${AWS_ACCESS_KEY_ID}
+      AWS_SECRET_ACCESS_KEY: ${AWS_SECRET_ACCESS_KEY}
 
     volumes:
       # Mount only data directories for persistence

@@ -15,6 +15,11 @@ Parameters:
       - staging
       - development
 
+  SpeedtestLocationUuid:
+    Description: UUID identifying the physical location of this speedtest device
+    Type: String
+    Default: unknown-location
+
 Resources:
   ServiceBucket:
     Type: AWS::S3::Bucket
@@ -36,7 +41,7 @@ Resources:
           - Id: DeleteResultsMoreThan90Days
             Status: Enabled
             ExpirationInDays: 90
-            Prefix: results
+            Prefix: uploads
       Tags:
         - Key: application
           Value: speedsnake
@@ -64,6 +69,50 @@ Resources:
               Bool:
                 aws:SecureTransport: false
 
+  RaspberryPiApplicationRole:
+    Type: AWS::IAM::Role
+    Properties:
+      RoleName: !Sub '${Universe}-${ServiceName}-raspberry-pi-app-role'
+      Description: !Sub 'Role for Raspberry Pi to upload speedtest results in ${Universe}'
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal:
+              AWS: arn:aws:iam::020844256789:user/RaspberryPi-HomeUser
+            Action: sts:AssumeRole
+      Policies:
+        - PolicyName: S3ResultsAccess
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              - Effect: Allow
+                Action:
+                  - s3:PutObject
+                  - s3:PutObjectTagging
+                  - s3:GetObject
+                  - s3:GetObjectTagging
+                  - s3:ListBucket
+                Resource:
+                  - !GetAtt ServiceBucket.Arn
+                  - !Sub '${ServiceBucket.Arn}/uploads/*'
+      Tags:
+        - Key: application
+          Value: speedsnake
+        - Key: ManagedBy
+          Value: CloudFormation
+  
+  RaspberryPiApplicationRoleSSM:
+    Type: AWS::SSM::Parameter
+    Properties:
+      Name: !Sub '/${Universe}/${ServiceName}/app/raspberry-pi-role-arn'
+      Type: String
+      Value: !GetAtt RaspberryPiApplicationRole.Arn
+      Description: ARN of the IAM role for Raspberry Pi to assume
+      Tags:
+        application: speedsnake
+        allow-raspberry-pi-access: true
+
 Outputs:
   BucketName:
     Description: Name of the S3 bucket for speedtest results
@@ -82,3 +131,9 @@ Outputs:
     Value: !Ref AWS::Region
     Export:
       Name: !Sub '${AWS::StackName}-BucketRegion'
+
+  RaspberryPiRoleArn:
+    Description: ARN of the IAM role for Raspberry Pi to assume
+    Value: !GetAtt RaspberryPiApplicationRole.Arn
+    Export:
+      Name: !Sub '${AWS::StackName}-RaspberryPiRoleArn'
