@@ -24,7 +24,7 @@ def get_parameters_by_path(path: str, region: str = "eu-west-2") -> dict:
     paginator = ssm.get_paginator("get_parameters_by_path")
     for page in paginator.paginate(Path=prefix, Recursive=True, WithDecryption=True):
         for param in page["Parameters"]:
-            relative = param["Name"][len(prefix):].lstrip("/")
+            relative = param["Name"][len(prefix) :].lstrip("/")
             keys = relative.split("/")
             _set_nested(result, keys, param["Value"])
     return result
