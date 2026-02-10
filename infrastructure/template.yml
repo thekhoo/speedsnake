@@ -15,6 +15,11 @@ Parameters:
       - staging
       - development
 
+  SpeedtestLocationUuid:
+    Description: UUID identifying the physical location of this speedtest device
+    Type: String
+    Default: unknown-location
+
 Resources:
   ServiceBucket:
     Type: AWS::S3::Bucket
@@ -64,6 +69,67 @@ Resources:
               Bool:
                 aws:SecureTransport: false
 
+  SsmS3BucketName:
+    Type: AWS::SSM::Parameter
+    Properties:
+      Name: !Sub '/${Universe}/${ServiceName}/app/s3_bucket_name'
+      Type: String
+      Value: !Ref ServiceBucket
+      Description: S3 bucket name for speedtest result uploads
+      Tags:
+        application: speedsnake
+
+  SsmSpeedtestLocationUuid:
+    Type: AWS::SSM::Parameter
+    Properties:
+      Name: !Sub '/${Universe}/${ServiceName}/app/speedtest_location_uuid'
+      Type: String
+      Value: !Ref SpeedtestLocationUuid
+      Description: Location identifier for Hive partitioning
+      Tags:
+        application: speedsnake
+
+  RaspberryPiApplicationRole:
+    Type: AWS::IAM::Role
+    Properties:
+      RoleName: !Sub '${Universe}-${ServiceName}-raspberry-pi-app-role'
+      Description: !Sub 'Role for Raspberry Pi to upload speedtest results in ${Universe}'
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal:
+              AWS: arn:aws:iam::020844256789:user/RaspberryPi-HomeUser
+            Action: sts:AssumeRole
+      Policies:
+        - PolicyName: S3ResultsAccess
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              - Effect: Allow
+                Action:
+                  - s3:PutObject
+                  - s3:GetObject
+                  - s3:ListBucket
+                Resource:
+                  - !GetAtt ServiceBucket.Arn
+                  - !Sub '${ServiceBucket.Arn}/*'
+        - PolicyName: SSMAppConfigAccess
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              - Effect: Allow
+                Action:
+                  - ssm:GetParameter
+                  - ssm:GetParameters
+                Resource:
+                  - !Sub 'arn:aws:ssm:${AWS::Region}:${AWS::AccountId}:parameter/${Universe}/${ServiceName}/app/*'
+      Tags:
+        - Key: application
+          Value: speedsnake
+        - Key: ManagedBy
+          Value: CloudFormation
+
 Outputs:
   BucketName:
     Description: Name of the S3 bucket for speedtest results
@@ -82,3 +148,9 @@ Outputs:
     Value: !Ref AWS::Region
     Export:
       Name: !Sub '${AWS::StackName}-BucketRegion'
+
+  RaspberryPiRoleArn:
+    Description: ARN of the IAM role for Raspberry Pi to assume
+    Value: !GetAtt RaspberryPiApplicationRole.Arn
+    Export:
+      Name: !Sub '${AWS::StackName}-RaspberryPiRoleArn'
