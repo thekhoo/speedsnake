@@ -17,6 +17,8 @@ repository = "https://github.com/thekhoo/speedsnake"
 [dependency-groups]
 dev = [
   'cfn-lint',
+  'moto[s3,ssm,sts]',
+  'boto3-stubs[ssm,s3,sts]',  
   'pytest',
   'pytest-sugar',
   'pyrefly',

@@ -292,6 +292,13 @@ Production setup uses named Docker volumes:
 - Prefer small, composable functions where possible
 - Write code that is easy to test
 
+## Testing Conventions
+
+- Prefer `@patch` decorator over `with patch()` context manager — it keeps test bodies flat and makes mock arguments explicit in the signature
+- When the same patch target is used in multiple tests in the same class, extract it into a `pytest.fixture` using `patch.start()` / `patch.stop()` to eliminate repetition
+- `pytest.raises` used as a context manager is acceptable — it is not a mock and does not cause nesting issues
+- Fixtures that patch a dependency should `yield` the mock or a relevant value so tests can access and reconfigure it
+
 ## Merge and Commit Behaviour
 
 - When making a change, always checkout a new branch first so code can be commited in increments

@@ -41,7 +41,7 @@ Resources:
           - Id: DeleteResultsMoreThan90Days
             Status: Enabled
             ExpirationInDays: 90
-            Prefix: results
+            Prefix: uploads
       Tags:
         - Key: application
           Value: speedsnake
@@ -69,16 +69,6 @@ Resources:
               Bool:
                 aws:SecureTransport: false
 
-  SsmS3BucketName:
-    Type: AWS::SSM::Parameter
-    Properties:
-      Name: !Sub '/${Universe}/${ServiceName}/app/s3_bucket_name'
-      Type: String
-      Value: !Ref ServiceBucket
-      Description: S3 bucket name for speedtest result uploads
-      Tags:
-        application: speedsnake
-
   RaspberryPiApplicationRole:
     Type: AWS::IAM::Role
     Properties:
@@ -105,7 +95,7 @@ Resources:
                   - s3:ListBucket
                 Resource:
                   - !GetAtt ServiceBucket.Arn
-                  - !Sub '${ServiceBucket.Arn}/*'
+                  - !Sub '${ServiceBucket.Arn}/uploads/*'
       Tags:
         - Key: application
           Value: speedsnake

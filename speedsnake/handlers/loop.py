@@ -7,8 +7,8 @@ import speedsnake.core.logging as speedtest_logging
 import speedsnake.data.parquet as parquet
 import speedsnake.data.results as results
 import speedsnake.service.environment as env
-import speedsnake.service.s3 as s3
 import speedsnake.service.speedtest as speedtest
+import speedsnake.service.upload as upload
 
 logger = logging.getLogger(__name__)
 
@@ -64,22 +64,17 @@ def check_and_upload_parquets() -> None:
 
     logger.info(f"Found {len(parquet_files)} parquet files to upload")
 
-    session = s3.assume_role()
-    config = s3.read_app_config(session)
-    bucket = config["s3_bucket_name"]
-
     for parquet_path in parquet_files:
         try:
-            local_md5 = s3.calculate_md5(parquet_path)
-            s3_key = s3.construct_s3_key(parquet_path, upload_dir)
-            etag = s3.upload_parquet_file(parquet_path, s3_key, bucket, session)
+            local_md5 = upload.calculate_md5(parquet_path)
+            etag = upload.upload_parquet_file(parquet_path)
 
-            if not s3.verify_upload_checksum(local_md5, etag):
+            if not upload.verify_upload_checksum(local_md5, etag):
                 logger.error(f"Checksum mismatch for {parquet_path}, preserving local file")
                 continue
 
             parquet_path.unlink()
-            logger.info(f"Uploaded and deleted {parquet_path} → s3://{bucket}/{s3_key}")
+            logger.info(f"deleted local file after successful upload: {parquet_path}")
 
         except Exception as e:
             logger.error(f"Failed to upload {parquet_path}: {e}")

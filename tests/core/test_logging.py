@@ -1,5 +1,6 @@
 import json
 import logging
+from unittest.mock import patch
 
 import pytest
 
@@ -85,47 +86,34 @@ class TestJSONFormatter:
 
 
 class TestSetupLogging:
-    def test_setup_logging_creates_log_directory(self, tmp_path, monkeypatch):
+    @pytest.fixture(autouse=True)
+    def log_dir(self, tmp_path):
         log_dir = tmp_path / "logs"
-        monkeypatch.setenv("LOG_DIR", str(log_dir))
+        with patch("speedsnake.core.logging.env.get_log_dir", return_value=log_dir):
+            yield log_dir
 
+    def test_setup_logging_creates_log_directory(self, log_dir):
         setup_logging()
-
         assert log_dir.exists()
 
-    def test_setup_logging_configures_root_logger(self, tmp_path, monkeypatch):
-        log_dir = tmp_path / "logs"
-        monkeypatch.setenv("LOG_DIR", str(log_dir))
-
+    def test_setup_logging_configures_root_logger(self):
         setup_logging(level=logging.DEBUG)
-
         root_logger = logging.getLogger()
         assert root_logger.level == logging.DEBUG
 
-    def test_setup_logging_adds_file_handler(self, tmp_path, monkeypatch):
-        log_dir = tmp_path / "logs"
-        monkeypatch.setenv("LOG_DIR", str(log_dir))
-
+    def test_setup_logging_adds_file_handler(self):
         setup_logging()
-
         root_logger = logging.getLogger()
         handler_types = [type(h).__name__ for h in root_logger.handlers]
         assert "RotatingFileHandler" in handler_types
 
-    def test_setup_logging_adds_console_handler(self, tmp_path, monkeypatch):
-        log_dir = tmp_path / "logs"
-        monkeypatch.setenv("LOG_DIR", str(log_dir))
-
+    def test_setup_logging_adds_console_handler(self):
         setup_logging()
-
         root_logger = logging.getLogger()
         handler_types = [type(h).__name__ for h in root_logger.handlers]
         assert "StreamHandler" in handler_types
 
-    def test_setup_logging_writes_json_to_file(self, tmp_path, monkeypatch):
-        log_dir = tmp_path / "logs"
-        monkeypatch.setenv("LOG_DIR", str(log_dir))
-
+    def test_setup_logging_writes_json_to_file(self, log_dir):
         setup_logging()
 
         test_logger = logging.getLogger("test")
