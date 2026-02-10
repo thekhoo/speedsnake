@@ -126,6 +126,46 @@ Resources:
                   - s3:GetBucketLocation
                 Resource: '*'
 
+        - PolicyName: IAMRoleManagement
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              - Sid: IAMRoleManagement
+                Effect: Allow
+                Action:
+                  - iam:CreateRole
+                  - iam:DeleteRole
+                  - iam:GetRole
+                  - iam:PutRolePolicy
+                  - iam:DeleteRolePolicy
+                  - iam:GetRolePolicy
+                  - iam:AttachRolePolicy
+                  - iam:DetachRolePolicy
+                  - iam:ListRolePolicies
+                  - iam:ListAttachedRolePolicies
+                  - iam:TagRole
+                  - iam:UntagRole
+                  - iam:PassRole
+                Resource:
+                  - !Sub 'arn:aws:iam::${AWS::AccountId}:role/${Universe}-${ServiceName}*'
+
+        - PolicyName: SSMParameterManagement
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              - Sid: SSMParameterManagement
+                Effect: Allow
+                Action:
+                  - ssm:PutParameter
+                  - ssm:DeleteParameter
+                  - ssm:GetParameter
+                  - ssm:GetParameters
+                  - ssm:DescribeParameters
+                  - ssm:AddTagsToResource
+                  - ssm:ListTagsForResource
+                Resource:
+                  - !Sub 'arn:aws:ssm:*:${AWS::AccountId}:parameter/${Universe}/${ServiceName}/*'
+
 Outputs:
   RoleArn:
     Description: ARN of the deployment role
