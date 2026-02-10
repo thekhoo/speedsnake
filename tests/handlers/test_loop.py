@@ -1,4 +1,4 @@
-from unittest.mock import patch
+from unittest.mock import MagicMock, patch
 
 import pytest
 
@@ -172,6 +172,146 @@ class TestCheckAndConvertCompleteDays:
 
                 # Should attempt both conversions despite first failure
                 assert mock_convert.call_count == 2
+
+
+class TestCheckAndUploadParquets:
+    def test_no_parquets_returns_early(self, tmp_path, monkeypatch):
+        monkeypatch.setenv("UPLOAD_DIR", str(tmp_path / "uploads"))
+        (tmp_path / "uploads").mkdir()
+
+        with patch("speedsnake.service.s3.assume_role") as mock_assume:
+            loop.check_and_upload_parquets()
+            mock_assume.assert_not_called()
+
+    def test_uploads_single_parquet_and_deletes_local(self, tmp_path, monkeypatch):
+        upload_dir = tmp_path / "uploads"
+        parquet_dir = upload_dir / "location=abc" / "year=2026" / "month=02" / "day=09"
+        parquet_dir.mkdir(parents=True)
+        parquet_file = parquet_dir / "speedtest_001.parquet"
+        parquet_file.write_bytes(b"parquet data")
+
+        monkeypatch.setenv("UPLOAD_DIR", str(upload_dir))
+
+        mock_session = MagicMock()
+        mock_config = {"s3_bucket_name": "my-bucket", "speedtest_location_uuid": "abc"}
+
+        with patch("speedsnake.service.s3.assume_role", return_value=mock_session):
+            with patch("speedsnake.service.s3.read_app_config", return_value=mock_config):
+                with patch("speedsnake.service.s3.upload_parquet_file", return_value='"abc123"') as mock_upload:
+                    with patch("speedsnake.service.s3.calculate_md5", return_value="abc123"):
+                        with patch("speedsnake.service.s3.verify_upload_checksum", return_value=True):
+                            loop.check_and_upload_parquets()
+
+        mock_upload.assert_called_once()
+        assert not parquet_file.exists()
+
+    def test_uploads_multiple_parquets(self, tmp_path, monkeypatch):
+        upload_dir = tmp_path / "uploads"
+        for i in range(3):
+            parquet_dir = upload_dir / f"location=abc" / "year=2026" / "month=02" / f"day=0{i+1}"
+            parquet_dir.mkdir(parents=True)
+            (parquet_dir / "speedtest_001.parquet").write_bytes(b"data")
+
+        monkeypatch.setenv("UPLOAD_DIR", str(upload_dir))
+
+        mock_session = MagicMock()
+        mock_config = {"s3_bucket_name": "my-bucket", "speedtest_location_uuid": "abc"}
+
+        with patch("speedsnake.service.s3.assume_role", return_value=mock_session):
+            with patch("speedsnake.service.s3.read_app_config", return_value=mock_config):
+                with patch("speedsnake.service.s3.upload_parquet_file", return_value='"abc123"') as mock_upload:
+                    with patch("speedsnake.service.s3.calculate_md5", return_value="abc123"):
+                        with patch("speedsnake.service.s3.verify_upload_checksum", return_value=True):
+                            loop.check_and_upload_parquets()
+
+        assert mock_upload.call_count == 3
+
+    def test_preserves_file_on_checksum_mismatch(self, tmp_path, monkeypatch):
+        upload_dir = tmp_path / "uploads"
+        parquet_dir = upload_dir / "location=abc" / "year=2026" / "month=02" / "day=09"
+        parquet_dir.mkdir(parents=True)
+        parquet_file = parquet_dir / "speedtest_001.parquet"
+        parquet_file.write_bytes(b"parquet data")
+
+        monkeypatch.setenv("UPLOAD_DIR", str(upload_dir))
+
+        mock_session = MagicMock()
+        mock_config = {"s3_bucket_name": "my-bucket", "speedtest_location_uuid": "abc"}
+
+        with patch("speedsnake.service.s3.assume_role", return_value=mock_session):
+            with patch("speedsnake.service.s3.read_app_config", return_value=mock_config):
+                with patch("speedsnake.service.s3.upload_parquet_file", return_value='"wronghash"'):
+                    with patch("speedsnake.service.s3.calculate_md5", return_value="abc123"):
+                        with patch("speedsnake.service.s3.verify_upload_checksum", return_value=False):
+                            loop.check_and_upload_parquets()
+
+        assert parquet_file.exists()
+
+    def test_preserves_file_on_upload_exception(self, tmp_path, monkeypatch):
+        upload_dir = tmp_path / "uploads"
+        parquet_dir = upload_dir / "location=abc" / "year=2026" / "month=02" / "day=09"
+        parquet_dir.mkdir(parents=True)
+        parquet_file = parquet_dir / "speedtest_001.parquet"
+        parquet_file.write_bytes(b"parquet data")
+
+        monkeypatch.setenv("UPLOAD_DIR", str(upload_dir))
+
+        mock_session = MagicMock()
+        mock_config = {"s3_bucket_name": "my-bucket", "speedtest_location_uuid": "abc"}
+
+        with patch("speedsnake.service.s3.assume_role", return_value=mock_session):
+            with patch("speedsnake.service.s3.read_app_config", return_value=mock_config):
+                with patch("speedsnake.service.s3.upload_parquet_file", side_effect=Exception("Network error")):
+                    with patch("speedsnake.service.s3.calculate_md5", return_value="abc123"):
+                        loop.check_and_upload_parquets()
+
+        assert parquet_file.exists()
+
+    def test_continues_after_single_failure(self, tmp_path, monkeypatch):
+        upload_dir = tmp_path / "uploads"
+        for i in range(2):
+            parquet_dir = upload_dir / "location=abc" / "year=2026" / "month=02" / f"day=0{i+1}"
+            parquet_dir.mkdir(parents=True)
+            (parquet_dir / "speedtest_001.parquet").write_bytes(b"data")
+
+        monkeypatch.setenv("UPLOAD_DIR", str(upload_dir))
+
+        mock_session = MagicMock()
+        mock_config = {"s3_bucket_name": "my-bucket", "speedtest_location_uuid": "abc"}
+
+        with patch("speedsnake.service.s3.assume_role", return_value=mock_session):
+            with patch("speedsnake.service.s3.read_app_config", return_value=mock_config):
+                with patch(
+                    "speedsnake.service.s3.upload_parquet_file",
+                    side_effect=[Exception("fail"), '"abc123"'],
+                ) as mock_upload:
+                    with patch("speedsnake.service.s3.calculate_md5", return_value="abc123"):
+                        with patch("speedsnake.service.s3.verify_upload_checksum", return_value=True):
+                            loop.check_and_upload_parquets()
+
+        assert mock_upload.call_count == 2
+
+    def test_reads_config_from_ssm_once(self, tmp_path, monkeypatch):
+        upload_dir = tmp_path / "uploads"
+        for i in range(3):
+            parquet_dir = upload_dir / "location=abc" / "year=2026" / "month=02" / f"day=0{i+1}"
+            parquet_dir.mkdir(parents=True)
+            (parquet_dir / "speedtest_001.parquet").write_bytes(b"data")
+
+        monkeypatch.setenv("UPLOAD_DIR", str(upload_dir))
+
+        mock_session = MagicMock()
+        mock_config = {"s3_bucket_name": "my-bucket", "speedtest_location_uuid": "abc"}
+
+        with patch("speedsnake.service.s3.assume_role", return_value=mock_session) as mock_assume:
+            with patch("speedsnake.service.s3.read_app_config", return_value=mock_config) as mock_read_config:
+                with patch("speedsnake.service.s3.upload_parquet_file", return_value='"abc123"'):
+                    with patch("speedsnake.service.s3.calculate_md5", return_value="abc123"):
+                        with patch("speedsnake.service.s3.verify_upload_checksum", return_value=True):
+                            loop.check_and_upload_parquets()
+
+        mock_assume.assert_called_once()
+        mock_read_config.assert_called_once()
 
 
 class TestLoopDecoratorWithParquetConversion:
