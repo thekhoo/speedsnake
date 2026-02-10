@@ -587,6 +587,7 @@ name = "speedsnake"
 version = "0.1.0"
 source = { virtual = "." }
 dependencies = [
+    { name = "boto3" },
     { name = "duckdb" },
 ]
 
@@ -600,7 +601,10 @@ dev = [
 ]
 
 [package.metadata]
-requires-dist = [{ name = "duckdb", specifier = ">=1.0.0" }]
+requires-dist = [
+    { name = "boto3", specifier = ">=1.35.0" },
+    { name = "duckdb", specifier = ">=1.0.0" },
+]
 
 [package.metadata.requires-dev]
 dev = [
