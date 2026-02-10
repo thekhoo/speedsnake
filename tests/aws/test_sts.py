@@ -27,7 +27,7 @@ class TestAssumeRole:
 
     def test_session_uses_temporary_credentials(self, iam_role):
         session = assume_role(ROLE_ARN, region=REGION)
-        credentials = session.get_credentials().get_frozen_credentials()
+        credentials = session.get_credentials().get_frozen_credentials()  # type: ignore
         assert credentials.access_key is not None
         assert credentials.secret_key is not None
         assert credentials.token is not None
