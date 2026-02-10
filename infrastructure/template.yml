@@ -114,16 +114,6 @@ Resources:
                 Resource:
                   - !GetAtt ServiceBucket.Arn
                   - !Sub '${ServiceBucket.Arn}/*'
-        - PolicyName: SSMAppConfigAccess
-          PolicyDocument:
-            Version: '2012-10-17'
-            Statement:
-              - Effect: Allow
-                Action:
-                  - ssm:GetParameter
-                  - ssm:GetParameters
-                Resource:
-                  - !Sub 'arn:aws:ssm:${AWS::Region}:${AWS::AccountId}:parameter/${Universe}/${ServiceName}/app/*'
       Tags:
         - Key: application
           Value: speedsnake
